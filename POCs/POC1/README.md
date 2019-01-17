@@ -23,4 +23,4 @@ Le serveur se lance en entrant la commande _python server.py_.
 
 Pour monitorer les affichages d'une carte ESP32 branchée à un PC, entrer la commande _make monitor_ dans le dossier **esp_code**.
 
-Si l'erreur `make: *** Aucune règle pour fabriquer la cible « /make/project.mk ». Arrêt.` survient, vérifiez que les variables d'environnement **PATH**, **IDF_PATH** et **MDF_PATH** sont bien initialisées.
+Si l'erreur "make: *** Aucune règle pour fabriquer la cible « /make/project.mk ». Arrêt." survient, vérifiez que les variables d'environnement **PATH**, **IDF_PATH** et **MDF_PATH** sont bien initialisées.

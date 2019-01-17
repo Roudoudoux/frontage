@@ -27,6 +27,8 @@
  *******************************************************/
 #define RX_SIZE          (1500)
 #define TX_SIZE          (1460)
+#define COLOR             1
+#define MAC               2
 
 /*******************************************************
  *                Variable Definitions
@@ -38,8 +40,11 @@ static uint8_t rx_buf[RX_SIZE] = { 0, };
 static bool is_running = true;
 static bool is_mesh_connected = false;
 static mesh_addr_t mesh_parent_addr;
-static mesh_addr_t my_id;
 static int mesh_layer = -1;
+static int send_mac = 0; // Flag binaire
+static int mac_request = 0; // identifiant de la requete. Initialisé à 0, les cartes n'y répondent que si l'identifiant du message est strictement supérieur au leur. Sinon, ne font que le transmettre.
+static mesh_addr_t node_asked; // Noeud ayant demandé l'adresse MAC (root)
+static uint8_t my_mac[6] = {0};
 static struct sockaddr_in tcpServerAddr;
 static uint32_t sock_fd;
 
@@ -82,7 +87,28 @@ void esp_mesh_p2p_tx_main(void *arg)
     is_running = true;
     while (is_running) {
         /* non-root do nothing but print */
-	/*sock_fd = socket(AF_INET, SOCK_STREAM, 0);
+        if (!esp_mesh_is_root()) {
+	    ESP_LOGI(MESH_TAG, "state : %d", send_mac);
+            ESP_LOGI(MESH_TAG, "layer:%d, rtableSize:%d, %s", mesh_layer,
+                     esp_mesh_get_routing_table_size(),
+                     (is_mesh_connected && esp_mesh_is_root()) ? "ROOT" : is_mesh_connected ? "NODE" : "DISCONNECT");
+            vTaskDelay(10 * 1000 / portTICK_RATE_MS);
+	    if (send_mac) { // Les cartes recopient leur adresses mac dans le buffer et l'envoient.
+		tx_buf[0] = MAC;
+		tx_buf[1] = my_mac[0];
+		tx_buf[2] = my_mac[1];
+		tx_buf[3] = my_mac[2];
+		tx_buf[4] = my_mac[3];
+		tx_buf[5] = my_mac[4];
+		tx_buf[6] = my_mac[5];
+		tx_buf[7] = mac_request;
+		send_mac = 0;
+		esp_mesh_send(&node_asked, &data, MESH_DATA_P2P, NULL, 0); // Répond au noeud qui a demandé la requête.
+		ESP_LOGI(MESH_TAG, "send my mac addr\n");
+	    }
+	    continue;
+        } // Code propre aux cartes root.
+	sock_fd = socket(AF_INET, SOCK_STREAM, 0); // Ouverture du socket avec le serveur.
 	if (sock_fd == -1) {
 	    ESP_LOGE(MESH_TAG, "Socket_fail");
 	}
@@ -90,73 +116,85 @@ void esp_mesh_p2p_tx_main(void *arg)
 	if (ret != 0) {
 	    ESP_LOGE(MESH_TAG, "Connection fail");
 	    close(sock_fd);
-	    }*/
-        if (!esp_mesh_is_root()) {
-            ESP_LOGI(MESH_TAG, "layer:%d, rtableSize:%d, %s", mesh_layer,
-                     esp_mesh_get_routing_table_size(),
-                     (is_mesh_connected && esp_mesh_is_root()) ? "ROOT" : is_mesh_connected ? "NODE" : "DISCONNECT");
-            vTaskDelay(10 * 1000 / portTICK_RATE_MS);
-            continue;
-	} else {
-	    mesh_addr_t children[CONFIG_MESH_ROUTE_TABLE_SIZE]; //Récupère les adresses mac de tout le réseau : pas encore fonctionnel.
-	    for (int i = 0; i < route_table_size; i++) {
-		int res = esp_mesh_get_subnet_nodes_list(&route_table[i], children, route_table_size-1);
-		for (int j = 0; j < route_table_size-1; j++) {
-		    ESP_LOGI(MESH_TAG, "Node "MACSTR" is connected to "MACSTR" : %d (ok : %d, ns : %d, ma : %d)", MAC2STR(children[j].addr), MAC2STR(route_table[i].addr), res, ESP_OK, ESP_ERR_MESH_NOT_START, ESP_ERR_MESH_ARGUMENT);
-		}
 	    }
-	}
         esp_mesh_get_routing_table((mesh_addr_t *) &route_table,
-                                   CONFIG_MESH_ROUTE_TABLE_SIZE * 6, &route_table_size);
-        if (send_count && !(send_count % 100)) {
+                                   CONFIG_MESH_ROUTE_TABLE_SIZE * 6, &route_table_size); // mise à jour de la table de routage : contient les adresses MAC de toutes les cartes du reseau.
+	send_count++;
+        if (send_count && !(send_count % 10)) { // Tout les 10 messages : emettre une requete MAC
             ESP_LOGI(MESH_TAG, "size:%d/%d,send_count:%d", route_table_size,
                      esp_mesh_get_routing_table_size(), send_count);
-        }
-        send_count++;
-        tx_buf[25] = (send_count >> 24) & 0xff;
-        tx_buf[24] = (send_count >> 16) & 0xff;
-        tx_buf[23] = (send_count >> 8) & 0xff;
-        tx_buf[22] = (send_count >> 0) & 0xff;
-        if (send_count % 2) {
-            memcpy(tx_buf, (uint8_t *)&light_on, sizeof(light_on));
-        } else {
-            memcpy(tx_buf, (uint8_t *)&light_off, sizeof(light_off));
-        }
-
-        for (i = 0; i < route_table_size; i++) {
 	    if (esp_mesh_is_root()) {
-		/*mesh_addr_t ext;
-		memcpy(&ext.addr, &mesh_parent_addr, 6);
-		IP4_ADDR(&ext.mip.ip4, 10, 0, 0, 1);
-		ext.mip.port = 8081;
-		data.tos = MESH_TOS_DEF;
-		ESP_LOGI(MESH_TAG, "Send data to ext : %d", esp_mesh_send(&ext, &data, MESH_DATA_TODS, NULL, 0));*/
-		/*char message[10] = "Hello";
-		int ret = write(sock_fd, message, strlen(message));
-		ESP_LOGI(MESH_TAG, "Message send : %d", ret);*/
+		mac_request++;
+		tx_buf[0] = MAC;
+		tx_buf[1] = my_mac[0];
+		tx_buf[2] = my_mac[1];
+		tx_buf[3] = my_mac[2];
+		tx_buf[4] = my_mac[3];
+		tx_buf[5] = my_mac[4];
+		tx_buf[6] = my_mac[5];
+		tx_buf[7] = mac_request;
+		for (i = 0; i < route_table_size; i++) {
+		    err = esp_mesh_send(&route_table[i], &data, MESH_DATA_P2P, NULL, 0); // Envoie d'un message à toutes les cartes au sein du réseau.
+		    if (err) {
+			ESP_LOGE(MESH_TAG,
+				 "[ROOT-2-UNICAST:%d][L:%d]parent:"MACSTR" to "MACSTR", heap:%d[err:0x%x, proto:%d, tos:%d]",
+				 send_count, mesh_layer, MAC2STR(mesh_parent_addr.addr),
+				 MAC2STR(route_table[i].addr), esp_get_free_heap_size(),
+				 err, data.proto, data.tos);
+		    } else if (!(send_count % 10)) {
+			ESP_LOGW(MESH_TAG,
+				 "[ROOT-2-UNICAST:%d][L:%d][rtableSize:%d]parent:"MACSTR" to "MACSTR", heap:%d[err:0x%x, proto:%d, tos:%d]",
+				 send_count, mesh_layer,
+				 esp_mesh_get_routing_table_size(),
+				 MAC2STR(mesh_parent_addr.addr),
+				 MAC2STR(route_table[i].addr), esp_get_free_heap_size(),
+				 err, data.proto, data.tos);
+		    }
+		    ESP_LOGI(MESH_TAG, "asked "MACSTR" for mac addr\n", MAC2STR(route_table[i].addr));
+		}
+		char message[100]; //Envoie des adresse mac de la table de routage au serveur.
+		for (i = 0; i < route_table_size; i++) { // Formatage du message.
+		    sprintf(message+20*i, "%2x:%2x:%2x:%2x:%2x:%2x - ", route_table[i].addr[0], route_table[i].addr[1], route_table[i].addr[2], route_table[i].addr[3], route_table[i].addr[4], route_table[i].addr[5]);
+		}
+		int ret = write(sock_fd, message, strlen(message));//ecriture dans le socket.
+		ESP_LOGI(MESH_TAG, "Message send : %d - %s", ret, message);
 	    }
-            err = esp_mesh_send(&route_table[i], &data, MESH_DATA_P2P, NULL, 0);
-            if (err) {
-                ESP_LOGE(MESH_TAG,
-                         "[ROOT-2-UNICAST:%d][L:%d]parent:"MACSTR" to "MACSTR", heap:%d[err:0x%x, proto:%d, tos:%d]",
-                         send_count, mesh_layer, MAC2STR(mesh_parent_addr.addr),
-                         MAC2STR(route_table[i].addr), esp_get_free_heap_size(),
-                         err, data.proto, data.tos);
-            } else if (!(send_count % 100)) {
-                ESP_LOGW(MESH_TAG,
-                         "[ROOT-2-UNICAST:%d][L:%d][rtableSize:%d]parent:"MACSTR" to "MACSTR", heap:%d[err:0x%x, proto:%d, tos:%d]",
-                         send_count, mesh_layer,
-                         esp_mesh_get_routing_table_size(),
-                         MAC2STR(mesh_parent_addr.addr),
-                         MAC2STR(route_table[i].addr), esp_get_free_heap_size(),
-                         err, data.proto, data.tos);
-            }
-        }
+        } else if (send_mac == 0) {
+	    tx_buf[0] = COLOR;
+	    tx_buf[26] = (send_count >> 24) & 0xff;
+	    tx_buf[25] = (send_count >> 16) & 0xff;
+	    tx_buf[24] = (send_count >> 8) & 0xff;
+	    tx_buf[23] = (send_count >> 0) & 0xff;
+	    if (send_count % 2) {
+		memcpy(tx_buf+8, (uint8_t *)&light_on, sizeof(light_on));
+	    } else {
+		memcpy(tx_buf+8, (uint8_t *)&light_off, sizeof(light_off));
+	    }
+
+	    for (i = 0; i < route_table_size; i++) {
+		err = esp_mesh_send(&route_table[i], &data, MESH_DATA_P2P, NULL, 0);
+		if (err) {
+		    ESP_LOGE(MESH_TAG,
+			     "[ROOT-2-UNICAST:%d][L:%d]parent:"MACSTR" to "MACSTR", heap:%d[err:0x%x, proto:%d, tos:%d]",
+			     send_count, mesh_layer, MAC2STR(mesh_parent_addr.addr),
+			     MAC2STR(route_table[i].addr), esp_get_free_heap_size(),
+			     err, data.proto, data.tos);
+		} else if (!(send_count % 100)) {
+		    ESP_LOGW(MESH_TAG,
+			     "[ROOT-2-UNICAST:%d][L:%d][rtableSize:%d]parent:"MACSTR" to "MACSTR", heap:%d[err:0x%x, proto:%d, tos:%d]",
+			     send_count, mesh_layer,
+			     esp_mesh_get_routing_table_size(),
+			     MAC2STR(mesh_parent_addr.addr),
+			     MAC2STR(route_table[i].addr), esp_get_free_heap_size(),
+			     err, data.proto, data.tos);
+		}
+	    } 
+	}
         /* if route_table_size is less than 10, add delay to avoid watchdog in this task. */
         if (route_table_size < 10) {
             vTaskDelay(1 * 1000 / portTICK_RATE_MS);
         }
-	close(sock_fd);
+	close(sock_fd); //Important : fermer le socket après utilisation.
     }
     vTaskDelete(NULL);
 }
@@ -182,20 +220,35 @@ void esp_mesh_p2p_rx_main(void *arg)
         }
         /* extract send count */
         if (data.size >= sizeof(send_count)) {
-            send_count = (data.data[25] << 24) | (data.data[24] << 16)
-                         | (data.data[23] << 8) | data.data[22];
+            send_count = (data.data[26] << 24) | (data.data[25] << 16)
+                         | (data.data[24] << 8) | data.data[23];
         }
-        recv_count++;
         /* process light control */
-        mesh_light_process(&from, data.data, data.size);
-        if (!(recv_count % 1)) {
-            ESP_LOGW(MESH_TAG,
-                     "[#RX:%d/%d][L:%d] parent:"MACSTR", receive from "MACSTR", size:%d, heap:%d, flag:%d[err:0x%x, proto:%d, tos:%d]",
-                     recv_count, send_count, mesh_layer,
-                     MAC2STR(mesh_parent_addr.addr), MAC2STR(from.addr),
-                     data.size, esp_get_free_heap_size(), flag, err, data.proto,
-                     data.tos);
-        }
+	if (data.data[0] == COLOR) {
+	    recv_count++;
+	    mesh_light_process(&from, data.data+8, data.size);
+	    if (!(recv_count % 1)) {
+		ESP_LOGW(MESH_TAG,
+			 "[#RX:%d/%d][L:%d] parent:"MACSTR", receive from "MACSTR", size:%d, heap:%d, flag:%d[err:0x%x, proto:%d, tos:%d]",
+			 recv_count, send_count, mesh_layer,
+			 MAC2STR(mesh_parent_addr.addr), MAC2STR(from.addr),
+			 data.size, esp_get_free_heap_size(), flag, err, data.proto,
+			 data.tos);
+	    }
+	} else if (data.data[0] == MAC) { // si une requete MAC est reçue
+	    if (!esp_mesh_is_root()) {
+		if (data.data[7] > mac_request) { // Vérification de l'identifiant de la requete.
+		    mac_request++;
+		    ESP_LOGI(MESH_TAG, "received mac request, sending\n");
+		    node_asked = from;
+		    send_mac = 1; // Flag pour que la carte envoie un message au prochain rappel de Tx.
+		} else {
+		    esp_mesh_send(&mesh_parent_addr, &data, MESH_DATA_P2P, NULL, 0); //Transmis au parent immédiatement.
+		}
+	    } else {// A la réception d'une adresse MAC, le noeud root l'affiche
+		ESP_LOGI(MESH_TAG, "MAC received : %x:%x:%x:%x:%x:%x\n", data.data[1], data.data[2], data.data[3], data.data[4], data.data[5], data.data[6]);
+	    }
+	}
     }
     vTaskDelete(NULL);
 }
@@ -374,7 +427,7 @@ void app_main(void)
     ESP_ERROR_CHECK(nvs_flash_init());
     /*  tcpip initialization */
     tcpip_adapter_init();
-    /* for mesh
+    /* for non-root node (stop for everyone and restart it later) :
      * stop DHCP server on softAP interface by default
      * stop DHCP client on station interface by default
      * */
@@ -389,27 +442,27 @@ void app_main(void)
     tcpip_adapter_set_ip_info(WIFI_IF_STA, &sta_ip);
 #endif
     /*  wifi initialization */
-    ESP_ERROR_CHECK(esp_event_loop_init(NULL, NULL));
+    ESP_ERROR_CHECK(esp_event_loop_init(NULL, NULL)); // callback, ctx? (reserved for user)
     wifi_init_config_t config = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&config));
+    ESP_ERROR_CHECK(esp_wifi_init(&config)); // L'API WI-FI doit toujours être lancée en premier.
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_FLASH));
     ESP_ERROR_CHECK(esp_wifi_start());
     /*  mesh initialization */
     ESP_ERROR_CHECK(esp_mesh_init());
-    ESP_ERROR_CHECK(esp_mesh_set_max_layer(CONFIG_MESH_MAX_LAYER));
-    ESP_ERROR_CHECK(esp_mesh_set_vote_percentage(1));
-    ESP_ERROR_CHECK(esp_mesh_set_ap_assoc_expire(10));
+    ESP_ERROR_CHECK(esp_mesh_set_max_layer(CONFIG_MESH_MAX_LAYER)); // default : 25
+    ESP_ERROR_CHECK(esp_mesh_set_vote_percentage(1)); // pourcentage pour les élections du futur root
+    ESP_ERROR_CHECK(esp_mesh_set_ap_assoc_expire(10)); // si le noeud n'a pas reçu de données dans cet intervalle de temps, se désctive.
 #ifdef MESH_FIX_ROOT
-    ESP_ERROR_CHECK(esp_mesh_fix_root(1));
+    ESP_ERROR_CHECK(esp_mesh_fix_root(1)); // Fixe le noeud root : aucune ré-élection de noeud n'aura pas lieu. ! Un noeud root DOIT etre défini dans ce mode.
 #endif
-    mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT();
+    mesh_cfg_t cfg = MESH_INIT_CONFIG_DEFAULT(); // configuration par défaut du réseau Mesh.
     /* mesh ID */
-    memcpy((uint8_t *) &cfg.mesh_id, MESH_ID, 6);
+    memcpy((uint8_t *) &cfg.mesh_id, MESH_ID, 6); // Remplace l'id par défaut par l'ID actuelle du réseau mesh.
     /* mesh event callback */
-    cfg.event_cb = &mesh_event_handler;
+    cfg.event_cb = &mesh_event_handler; // event callback
     /* router */
-    cfg.channel = CONFIG_MESH_CHANNEL;
-    cfg.router.ssid_len = strlen(CONFIG_MESH_ROUTER_SSID);
+    cfg.channel = CONFIG_MESH_CHANNEL; // id du réseau
+    cfg.router.ssid_len = strlen(CONFIG_MESH_ROUTER_SSID); // longueur du ssid du reseau
     memcpy((uint8_t *) &cfg.router.ssid, CONFIG_MESH_ROUTER_SSID, cfg.router.ssid_len);
     memcpy((uint8_t *) &cfg.router.password, CONFIG_MESH_ROUTER_PASSWD,
            strlen(CONFIG_MESH_ROUTER_PASSWD));
@@ -418,13 +471,14 @@ void app_main(void)
     cfg.mesh_ap.max_connection = CONFIG_MESH_AP_CONNECTIONS;
     memcpy((uint8_t *) &cfg.mesh_ap.password, CONFIG_MESH_AP_PASSWD,
            strlen(CONFIG_MESH_AP_PASSWD));
-    ESP_ERROR_CHECK(esp_mesh_set_config(&cfg));
+    ESP_ERROR_CHECK(esp_mesh_set_config(&cfg)); // mets à jour la config du réseau mesh.
+    /* Initialisation de l'adresse MAC*/
+    esp_efuse_mac_get_default(my_mac);
     /* mesh start */
     ESP_ERROR_CHECK(esp_mesh_start());
     ESP_LOGI(MESH_TAG, "mesh starts successfully, heap:%d, %s\n",  esp_get_free_heap_size(),
-             esp_mesh_is_root_fixed() ? "root fixed" : "root not fixed");
-    esp_mesh_get_id(&my_id);
-    esp_efuse_mac_get_default(my_id.addr);
+             esp_mesh_is_root_fixed() ? "root fixed" : "root not fixed"); // log local
+    /* Création du socket */
     memset(&tcpServerAddr, 0, sizeof(tcpServerAddr));
     tcpServerAddr.sin_family = AF_INET;
     tcpServerAddr.sin_addr.s_addr = inet_addr("10.0.0.1");
