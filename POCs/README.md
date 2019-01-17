@@ -2,8 +2,7 @@
 
 ## Index
 
-- POC1 : Connexion d'une ESP32 à un PC via un point de rendez-vous externe
-- POC2 : Les ESP32 se connectent via le réseau mesh implémenté par esp-mesh. Les ESP32 non root clignotent n+1 fois (n étant fixé par l'utilisateur)
+- POC1 : Envoi des adresses mac des cartes du réseau mesh par l'ESP32 **root** au serveur python par WiFi.
 
 ## Architecture des dossiers POC
 
