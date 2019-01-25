@@ -19,6 +19,41 @@ def cln_str(s):
             '')
     return ''
 
+class MeshConfiguration(Base):
+    __tablename__ = 'meshmatrix'
+
+    uniqid = Column(String(36), primary_key=True)
+    rows = Column(Integer)
+    cols = Column(Integer)
+
+    def __init__(self) {
+        self.uniqid = str(uuid4())
+        self.rows = 4
+        self.cols = 19
+    }
+
+    def __repr__(self) {
+        return '<meshmatrix %r (%r) (%r)>' % (
+            self.uniqid, self.rows, self.cols)
+    }
+
+    def getRows(self) {
+        return self.rows
+    }
+    
+    def getCols(self) {
+        return self.cols
+    }
+
+    def setRows(self, newRows) {
+        self.rows = newRows
+    }
+
+    def setCols(self, newCols) {
+        self.cols = newCols
+    }
+
+
 class FappModel(Base):
     __tablename__ = 'fapp'
 
