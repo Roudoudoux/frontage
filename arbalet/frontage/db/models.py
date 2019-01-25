@@ -4,7 +4,7 @@ import datetime
 from uuid import uuid4
 from db.base import Base
 from sqlalchemy import Column, Integer, String, DateTime, Boolean
-
+from sqlalchemy.dialects import postgresql
 
 def cln_str(s):
     if s:
@@ -20,39 +20,56 @@ def cln_str(s):
     return ''
 
 class MeshConfiguration(Base):
-    __tablename__ = 'meshmatrix'
+    __tablename__ = 'meshconfiguration'
 
     uniqid = Column(String(36), primary_key=True)
     rows = Column(Integer)
     cols = Column(Integer)
 
-    def __init__(self) {
+    def __init__(self):
         self.uniqid = str(uuid4())
         self.rows = 4
         self.cols = 19
-    }
 
-    def __repr__(self) {
-        return '<meshmatrix %r (%r) (%r)>' % (
+    def __repr__(self):
+        return '<meshconfiguration %r (%r) (%r)>' % (
             self.uniqid, self.rows, self.cols)
-    }
 
-    def getRows(self) {
+    def getRows(self):
         return self.rows
-    }
     
-    def getCols(self) {
+    def getCols(self):
         return self.cols
-    }
 
-    def setRows(self, newRows) {
+    def setRows(self, newRows):
         self.rows = newRows
-    }
 
-    def setCols(self, newCols) {
+    def setCols(self, newCols):
         self.cols = newCols
-    }
 
+class Cell():
+    def __init__(self, x, y, macAddress):
+        self.x = x
+        self.y = y
+        self.macAddress = macAddress
+
+#TOFIX
+class CellTable(Base):
+    __tablename__ = 'celltable'
+
+    uniqid = ColumnArray(String(36), primary_key=True)
+    table = Column(postgresql.ARRAY(Cell))
+
+    def __init__(self):
+        self.uniqid = str(uuid4())
+        self table = {}
+
+    def __repr__(self):
+        return '<celtable %r>' % (
+            self.uniqid)
+
+    def addTable(self, cell):
+        table.add(cell)
 
 class FappModel(Base):
     __tablename__ = 'fapp'
