@@ -37,7 +37,7 @@ class MeshConfiguration(Base):
 
     def getRows(self):
         return self.rows
-    
+        
     def getCols(self):
         return self.cols
 
@@ -53,23 +53,25 @@ class Cell():
         self.y = y
         self.macAddress = macAddress
 
-#TOFIX
 class CellTable(Base):
     __tablename__ = 'celltable'
 
     uniqid = ColumnArray(String(36), primary_key=True)
-    table = Column(postgresql.ARRAY(Cell))
+    table = Column(postgresql.ARRAY(Cell, dimensions=1), nullable=True)
 
     def __init__(self):
         self.uniqid = str(uuid4())
-        self table = {}
+        self.table = []
 
     def __repr__(self):
-        return '<celtable %r>' % (
-            self.uniqid)
+        return '<celtable %r (%r)>' % (
+            self.uniqid, len(self.table))
 
-    def addTable(self, cell):
-        table.add(cell)
+    def addTailTable(self, cell):
+        table.append(cell)
+
+    def removeTailTable(self):
+        table.pop()
 
 class FappModel(Base):
     __tablename__ = 'fapp'
