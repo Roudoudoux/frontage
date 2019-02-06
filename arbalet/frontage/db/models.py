@@ -3,8 +3,7 @@ import datetime
 # from server.extensions import db
 from uuid import uuid4
 from db.base import Base
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
-from sqlalchemy.dialects import postgresql
+from sqlalchemy import table, Column, Integer, String, DateTime, Boolean
 
 def cln_str(s):
     if s:
@@ -35,43 +34,47 @@ class MeshConfiguration(Base):
         return '<meshconfiguration %r (%r) (%r)>' % (
             self.uniqid, self.rows, self.cols)
 
-    def getRows(self):
-        return self.rows
-        
-    def getCols(self):
-        return self.cols
-
-    def setRows(self, newRows):
-        self.rows = newRows
-
-    def setCols(self, newCols):
-        self.cols = newCols
-
-class Cell():
-    def __init__(self, x, y, macAddress):
-        self.x = x
-        self.y = y
-        self.macAddress = macAddress
-
 class CellTable(Base):
     __tablename__ = 'celltable'
 
     uniqid = Column(String(36), primary_key=True)
-    #table = Column(postgresql.ARRAY(Cell, dimensions=1), nullable=True)
+    ID = Column(Integer)
+    X = Column(Integer)
+    Y = Column(Integer)
+    MacAddress = Column(Integer)
 
-    def __init__(self):
+    #cellTable = table('cellTable', Column("Id", Integer), 
+    #            Column('X', Integer),
+    #            Column('Y', Integer), 
+    #            Column('MacAddress', String)
+    #            )
+
+    def __init__(self, x, y, macAddress):
         self.uniqid = str(uuid4())
-        self.table = []
+        #self.ID = 0 #TODO en faire une variable nbre de cells utilisées et nbr de cells non utilisées
+        self.X = x
+        self.Y = y
+        self.MacAddress = macAddress
 
     def __repr__(self):
-        return '<celtable %r (%r)>' % (
-            self.uniqid, len(self.table))
+        return '<celltable %r (%r)>' % (
+            self.uniqid, self.ID)
 
-    #def addTailTable(self, cell):
-    #    table.append(cell)
+    #def getCellID(self, ID):
+    #    return self.cellTable.where(self.cellTable.Id==ID)
 
-    #def removeTailTable(self):
-    #    table.pop()
+    #def getCellPosition(self, x, y):
+    #    return self.cellTable.where(self.cellTable.X==x and self.cellTable.Y==y)
+
+    #def addCell(self, x, y, macAddress):
+    #    cellTable.insert().values(Id = self.lastId, X = x, Y = y, MacAddress = macAddress)
+    #    self.lastId += 1
+
+    #def modifyCell(self, ID, x, y, macAddress):
+    #comment faire avec SQLAlchemy, trouver les fonctions dans la bibliothèque
+
+    #def deleteCell(self):
+    #Supprime le dernier element ajoute
 
 class FappModel(Base):
     __tablename__ = 'fapp'

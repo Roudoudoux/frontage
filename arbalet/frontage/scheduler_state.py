@@ -51,6 +51,65 @@ class SchedulerState(object):
     KEY_CURRENT_RUNNING_APP = 'frontage_current_running_app'
 
     @staticmethod
+    def get_rows():
+        session = session_factory()
+        rows = session.query(MeshConfiguration).first().rows
+        session.close()
+        return rows
+
+    @staticmethod
+    def get_cols():
+        session = session_factory()
+        cols = session.query(MeshConfiguration).first().cols
+        session.close()
+        return cols
+
+    @staticmethod
+    def set_rows(value):
+        session = session_factory()
+        conf = session.query(MeshConfiguration).first()
+        conf.rows = value
+        session.commit()
+        session.close()
+
+    @staticmethod
+    def set_cols(value):
+        session = session_factory()
+        conf = session.query(MeshConfiguration).first()
+        conf.cols = value
+        session.commit()
+        session.close()
+
+    @staticmethod
+    def add_cell(x, y, mac_address):
+        session = session_factory()
+        table = CellTable(x, y, mac_address)
+        session.add(table)
+        session.commit()
+        session.close()
+
+    @staticmethod
+    def modify_cell_position(x, y, mac_address):
+        session = session_factory()
+        table = session.query(CellTable).all()
+        for cell in table:
+            if (cell.MacAddress == mac_address):
+                cell.X = x
+                cell.Y = y
+        session.commit()
+        session.close()
+
+    @staticmethod
+    def modify_cell_address(x, y, mac_address):
+        session = session_factory()
+        table = session.query(CellTable).all()
+        for cell in table:
+            if (cell.X == x and cell.Y == y):
+                cell.MacAddress = mac_address
+        session.commit()
+        session.close()
+
+    @staticmethod
     def get_expires_value():
         session = session_factory()
         expires = session.query(ConfigModel).first().expires_delay
