@@ -60,22 +60,6 @@ class CellTable(Base):
         return '<celltable %r (%r)>' % (
             self.uniqid, self.ID)
 
-    #def getCellID(self, ID):
-    #    return self.cellTable.where(self.cellTable.Id==ID)
-
-    #def getCellPosition(self, x, y):
-    #    return self.cellTable.where(self.cellTable.X==x and self.cellTable.Y==y)
-
-    #def addCell(self, x, y, macAddress):
-    #    cellTable.insert().values(Id = self.lastId, X = x, Y = y, MacAddress = macAddress)
-    #    self.lastId += 1
-
-    #def modifyCell(self, ID, x, y, macAddress):
-    #comment faire avec SQLAlchemy, trouver les fonctions dans la bibliothèque
-
-    #def deleteCell(self):
-    #Supprime le dernier element ajoute
-
 class FappModel(Base):
     __tablename__ = 'fapp'
 
