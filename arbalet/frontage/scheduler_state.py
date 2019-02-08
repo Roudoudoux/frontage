@@ -4,7 +4,7 @@ import time
 
 from time import sleep
 from utils.red import redis, redis_get
-from db.models import FappModel, ConfigModel
+from db.models import FappModel, ConfigModel, MeshConfiguration, CellTable
 from db.base import session_factory, engine
 from db.tools import to_dict, serialize
 
