@@ -4,7 +4,7 @@ import time
 
 from time import sleep
 from utils.red import redis, redis_get
-from db.models import FappModel, ConfigModel, MeshConfiguration, CellTable
+from db.models import FappModel, ConfigModel, DimensionsModel, CellTable
 from db.base import session_factory, engine
 from db.tools import to_dict, serialize
 
@@ -53,21 +53,21 @@ class SchedulerState(object):
     @staticmethod
     def get_rows():
         session = session_factory()
-        rows = session.query(MeshConfiguration).first().rows
+        rows = session.query(DimensionsModel).first().rows
         session.close()
         return rows
 
     @staticmethod
     def get_cols():
         session = session_factory()
-        cols = session.query(MeshConfiguration).first().cols
+        cols = session.query(DimensionsModel).first().cols
         session.close()
         return cols
 
     @staticmethod
     def set_rows(value):
         session = session_factory()
-        conf = session.query(MeshConfiguration).first()
+        conf = session.query(DimensionsModel).first()
         conf.rows = value
         session.commit()
         session.close()
@@ -75,7 +75,7 @@ class SchedulerState(object):
     @staticmethod
     def set_cols(value):
         session = session_factory()
-        conf = session.query(MeshConfiguration).first()
+        conf = session.query(DimensionsModel).first()
         conf.cols = value
         session.commit()
         session.close()

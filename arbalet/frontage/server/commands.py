@@ -2,7 +2,7 @@
 import os
 import click
 from db.base import session_factory, Base, engine
-from db.models import FappModel, ConfigModel, MeshConfiguration, CellTable
+from db.models import FappModel, ConfigModel, DimensionsModel, CellTable
 from utils.security import hash_password
 from apps import get_app_names
 from getpass import getpass
@@ -24,7 +24,7 @@ def _create_all():
     Base.metadata.create_all(engine)
     initiate_db_config()
     initiate_db_fapp()
-    initiate_db_mesh_configuration()
+    initiate_db_dimensions()
 
 @click.command()
 @with_appcontext
@@ -76,13 +76,13 @@ def clean():
                 click.echo('Removing {}'.format(full_pathname))
                 os.remove(full_pathname)
 
-def initiate_db_mesh_configuration():
+def initiate_db_dimensions():
     session = session_factory()
-    conf = session.query(ConfigModel).first()
+    conf = session.query(DimensionsModel).first()
 
     if not conf:
-        click.echo("No MeshConfiguration found, initiating MeshConfiguration creation...")
-        conf = MeshConfiguration()
+        click.echo("No dimensions found, initiating dimensions creation...")
+        conf = DimensionsModel()
         session.add(conf)
     
     session.commit()
