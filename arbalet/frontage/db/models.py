@@ -18,8 +18,8 @@ def cln_str(s):
             '')
     return ''
 
-class MeshConfiguration(Base):
-    __tablename__ = 'meshconfiguration'
+class DimensionsModel(Base):
+    __tablename__ = 'dimensionsmodel'
 
     uniqid = Column(String(36), primary_key=True)
     rows = Column(Integer)
@@ -31,7 +31,7 @@ class MeshConfiguration(Base):
         self.cols = 19
 
     def __repr__(self):
-        return '<meshconfiguration %r (%r) (%r)>' % (
+        return '<dimensionsmodel %r (%r) (%r)>' % (
             self.uniqid, self.rows, self.cols)
 
 class CellTable(Base):
