@@ -327,3 +327,52 @@ rest_api.add_resource(DrawingAppDefault, '/b/apps/drawing/default')
 
 rest_api.add_resource(AppRunningView, '/b/apps/running')
 rest_api.add_resource(AppListView, '/b/apps')
+
+
+
+# arbalet mesh additions
+@blueprint.route('/b/admin/settings/mesh/dimensions', methods=['POST'])
+@authentication_required
+def set_building_dimensions(user):
+    if not is_admin(user):
+        abort(403, "Forbidden Bru")
+
+    body = request.get_json()
+    if 'height' not in body:
+        abort(415, 'Missing height value')
+    if 'width' not in body:
+        abort(415, 'Missing width value')
+
+    #SchedulerState.set_rows(body['height'])
+    #SchedulerState.set_cols(body['width'])
+    #return jsonify(width=SchedulerState.get_rows(),
+    #               height=SchedulerState.get_cols())
+    return jsonify(width=body['height'],
+                       height=body['width'])
+
+@blueprint.route('/b/admin/settings/mesh/pixel/set', methods=['POST'])
+@authentication_required
+def set_pixel_position(user):
+    if not is_admin(user):
+        abort(403, "Forbidden Bru")
+
+    body = request.get_json()
+    if 'row' not in body:
+        abort(415, 'Missing height value')
+    if 'column' not in body:
+        abort(415, 'Missing width value')
+
+    return jsonify(row=body['row'], column=body['column'])
+
+@blueprint.route('/b/admin/settings/mesh/pixel/reset', methods=['POST'])
+@authentication_required
+def reset_pixel_position(user):
+    if not is_admin(user):
+        abort(403, "Forbidden Bru")
+
+    print_flush("reset")
+    return jsonify(success='true')
+    # body = request.get_json()
+    # print_flush(body)
+    # return jsonify(row=body['row'],
+    #                column=body['column'])
