@@ -8,8 +8,9 @@
 #include "nvs_flash.h"
 #include "lwip/sockets.h"*/
 #include "pthread.h"
-/*#include "assert.h"       ---Pour le main de test
-#include "stdio.h"*/
+#include "assert.h"       //---Pour le main de test
+#include "stdio.h"
+#include <sys/time.h>
 
 
 /*-------Penser à remplacer int par uint8_t pour les parametres "frame"----------*/
@@ -80,10 +81,25 @@ void frame_crc_computer(int * frame, int len, int * crc_table) {
     }
 }
 
+int check_crc(int * frame) {
+    //printf("?\n");
+    int crc_table[7];
+    int size = 16;
+    int frame2[(size-1)*8];
+    for (int i = 0; i < size-1; i++) {
+	for (int j = 0; j < 8; j++) {
+	    frame2[(i*8)+j] = (frame[i] & (1 << (7-j))) >> (7-j);
+	}
+    }
+    frame_crc_computer(frame2, (size-1)*8, crc_table);
+    int crc = crc_table[0] << 6 | crc_table[1] << 5 | crc_table[2] << 4 | crc_table[3] << 3 | crc_table[4] << 2 | crc_table[5] << 1 | crc_table[6];
+    //printf("%d and %d\n", frame[size-1], crc);
+    frame[size-1] = crc;
+}
 
-/*int main() {
+int main() {
 
-    int frame[7];
+    /*int frame[8];
     frame[0] = 0;
     frame[1] = 1;
     frame[2] = 1;
@@ -91,9 +107,10 @@ void frame_crc_computer(int * frame, int len, int * crc_table) {
     frame[4] = 1;
     frame[5] = 0;
     frame[6] = 1;
+    frame[7] = 0;
 
     int crc_table[7];
-    frame_crc_computer(frame, 7, crc_table);
+    frame_crc_computer(frame, 8, crc_table);
 
     assert(crc_table[0] == 0);
     assert(crc_table[1] == 1);
@@ -102,6 +119,20 @@ void frame_crc_computer(int * frame, int len, int * crc_table) {
     assert(crc_table[4] == 0);
     assert(crc_table[5] == 1);
     assert(crc_table[6] == 0);
-    printf("ok");
+    printf("%d", crc_table[0] << 6 | crc_table[1] << 5 | crc_table[2] << 4 | crc_table[3] << 3 | crc_table[4] << 2 | crc_table[5] << 1 | crc_table[6]);
+    printf("ok\n");
+    int frame2[3] = {106, 212, 58};
+    printf("Res = %d\n", check_crc(frame2));*/
+    struct timeval tv1, tv2;
+    int frame[16] = {1, 3, 172, 48, 36, 96, 58, 42, 1, 0, 0, 0, 0, 0, 0, 0};
+    gettimeofday(&tv1, NULL);
+    int i = 0;
+    while (i < 10000) {
+	i++;
+	check_crc(frame);
+    }
+    gettimeofday(&tv2, NULL);
+    unsigned long microseconds = (tv2.tv_sec - tv1.tv_sec) * 1000000 + (tv2.tv_usec - tv1.tv_usec);
+    printf("Res = %d with time %f µs\n", frame[15], (double)microseconds/10000);
     return 0;
-}*/
+}
