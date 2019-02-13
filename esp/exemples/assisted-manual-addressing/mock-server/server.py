@@ -38,6 +38,11 @@ var = None
 tab=[]
 comp = 0
 dic = {}
+
+#inputs for columns and rows
+cols=2
+rows=3
+
 #Declaration of functions
 
 def msg_install(data):
@@ -66,6 +71,7 @@ def msg_ama(amatype):
     return array
 
 def msg_color(colors, ama= -1, col= None):
+    global mac
     print(colors)
     array = bytearray(1+ len(dic)*3 + 4)
     array[0] = COLOR
@@ -90,11 +96,28 @@ def state_color():
     G = (0,255,0)
     B = (0,0,255)
     W = (255,255,255)
-    color1 = [[R,G],[B,W]]
-    color2 = [[W,R],[G,B]]
-    color3 = [[B,W],[R,G]]
-    color4 = [[G,B],[W,R]]
-    sequence = [color1, color2, color3, color4]
+
+
+
+    sequence = []
+    color_selection = [R, G, B, W]
+
+    #generation of a 4-couloured pattern long sequence
+    #which will be displayed by the esp32
+    for k in range(0,4) :
+        color = []
+        color_selecter = k % 4
+        for i in range(0, rows) :
+            color_selecter = (color_selecter + i) % 4
+            line = []
+            for j in range(0, cols) :
+                line.append(color_selection[color_selecter])
+                color_selecter = color_selecter +1
+                j=j
+            color.append(line)
+        sequence.append(color)
+
+
     i=0
     goon = 'Y'
     print("entre dans l'etape color")
@@ -107,15 +130,22 @@ def state_color():
         turn += 1
 
 def state_ama():
-    global dic, conn, var
+    global dic, conn, var, cols, rows
     R = (255,0,0)
     G = (0,255,0)
     D = (0,0,0)
-    color = [[D,D],[D,D]]
+    color = []
+    for k in range(0, rows) :
+        line = []
+        k=k
+        for i in range(0, cols) :
+            line.append(D)
+        color.append(line)
+    #color = [[D,D,D],[D,D,D]]
     array = msg_ama(AMA_INIT)
     conn.send(array)
     for i in range(0, len(dic)):
-        ((col, row), mac)=dic.get(i)
+        (_, mac)=dic.get(i)
         print("Sent color to %d:%d:%d:%d:%d:%d" % (int(mac[0]), int(mac[1]), int(mac[2]), int(mac[3]), int(mac[4]), int(mac[5])))
         array=msg_color(color, i, R)
         print(array)
@@ -148,8 +178,13 @@ def state_ama():
     conn.send(array)
 
 def initialisation():
-    global conn, addr, s
+    global conn, addr, s, rows, cols
     # socket creation
+    print("Please enter number of rows :")
+    rows = input()
+    print("Please enter number of columns :")
+    cols = input()
+
     s= socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     print('Socket has been created')
     # socket binding
@@ -157,10 +192,10 @@ def initialisation():
         try :
             s.bind((HOST, PORT))
             s.listen(11)
-        except socket.error as msg:
+        except socket.error:
+            print('Binding has failed\n Err code :')
             continue
-            print('Binding has failed\n Err code :' + str(msg[0]) + '\n msg : ' + msg[1])
-            sys.exit()  
+            #sys.exit()  
         break
     # what is it for ?
 
@@ -205,7 +240,7 @@ def wake_up() :
                 time.sleep(1)
             else :
                 print("A message was recieved but it is not a BEACON")
-            print("Still waiting for "+ str(len(tab)-len(temp)) +" cards");
+            print("Still waiting for "+ str(len(tab)-len(temp)) +" cards")
     print("All cards connected, going back into COLORS")
     array = msg_ama(AMA_INIT)
     conn.send(array)
@@ -226,8 +261,12 @@ def get_macs():
             pass
         if (data != "") :
             if data[0] == BEACON :
-                print("BEACON : %d-%d-%d-%d-%d-%d" % (int(data[1]), int(data[2]), int(data[3]), int(data[4]), int(data[5]), int(data[6])))
-                mac = [int(data[1]), int(data[2]), int(data[3]), int(data[4]), int(data[5]), int(data[6])]
+                #on recupere l'@mac de la trame BEACON
+                print("BEACON : %d" % (int(data[1])))
+                mac = []
+                for x in data[2:6] :
+                    print("-%d" % (int(x)))
+                    mac = mac + [int(x)]
                 if mac in tab :
                     print("already got this")
                     continue
@@ -270,6 +309,10 @@ def stop() :
         if (var == 'c'):
             close_co()
             sys.exit()
+
+
+
+#Le MAIN est ici
 
 while True :
     try :
