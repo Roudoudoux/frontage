@@ -343,12 +343,10 @@ def set_building_dimensions(user):
     if 'width' not in body:
         abort(415, 'Missing width value')
 
-    #SchedulerState.set_rows(body['height'])
-    #SchedulerState.set_cols(body['width'])
-    #return jsonify(width=SchedulerState.get_rows(),
-    #               height=SchedulerState.get_cols())
-    return jsonify(width=body['height'],
-                       height=body['width'])
+    SchedulerState.set_rows(body['height'])
+    SchedulerState.set_cols(body['width'])
+    return jsonify(width=SchedulerState.get_rows(),
+                  height=SchedulerState.get_cols())
 
 @blueprint.route('/b/admin/settings/mesh/pixel/set', methods=['POST'])
 @authentication_required
@@ -361,6 +359,12 @@ def set_pixel_position(user):
         abort(415, 'Missing height value')
     if 'column' not in body:
         abort(415, 'Missing width value')
+
+
+    #TODO: variable mac a changer en string pour voir l'erreur
+    mac = 1;
+
+    SchedulerState.add_cell(body['column'], body['row'], mac);
 
     return jsonify(row=body['row'], column=body['column'])
 
