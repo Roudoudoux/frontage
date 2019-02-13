@@ -34,20 +34,14 @@ class DimensionsModel(Base):
         return '<dimensionsmodel %r (%r) (%r)>' % (
             self.uniqid, self.rows, self.cols)
 
-class CellTable(Base):
+class CellTableModel(Base):
     __tablename__ = 'celltable'
 
     uniqid = Column(String(36), primary_key=True)
-    ID = Column(Integer)
+    #ID = Column(Integer)
     X = Column(Integer)
     Y = Column(Integer)
     MacAddress = Column(Integer)
-
-    #cellTable = table('cellTable', Column("Id", Integer), 
-    #            Column('X', Integer),
-    #            Column('Y', Integer), 
-    #            Column('MacAddress', String)
-    #            )
 
     def __init__(self, x, y, macAddress):
         self.uniqid = str(uuid4())
@@ -57,8 +51,8 @@ class CellTable(Base):
         self.MacAddress = macAddress
 
     def __repr__(self):
-        return '<celltable %r (%r)>' % (
-            self.uniqid, self.ID)
+        return '<celltable %r (%r) (%r) (%r)>' % (
+            self.uniqid, self.X, self.Y, self.MacAddress)
 
 class FappModel(Base):
     __tablename__ = 'fapp'

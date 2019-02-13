@@ -4,7 +4,7 @@ import time
 
 from time import sleep
 from utils.red import redis, redis_get
-from db.models import FappModel, ConfigModel, DimensionsModel, CellTable
+from db.models import FappModel, ConfigModel, DimensionsModel, CellTableModel
 from db.base import session_factory, engine
 from db.tools import to_dict, serialize
 
@@ -81,9 +81,9 @@ class SchedulerState(object):
         session.close()
 
     @staticmethod
-    def add_cell(x, y, mac_address):
+    def add_cell(x, y, mac):
         session = session_factory()
-        table = CellTable(x, y, mac_address)
+        table = CellTableModel(x, y, mac)
         session.add(table)
         session.commit()
         session.close()
@@ -343,7 +343,7 @@ class SchedulerState(object):
                 v = calendar[at].get(SchedulerState.KEY_OFF_TIME, now.isoformat())
                 off_time = datetime.datetime.strptime(v, '%Y-%m-%dT%H:%M:%S')
                 return off_time + datetime.timedelta(hours=float(SchedulerState.get_sunrise_offset()))
-        
+
         # Sanity check: worst case: off time is unknown, return past date
         return now + datetime.timedelta(hours=-10)
 
