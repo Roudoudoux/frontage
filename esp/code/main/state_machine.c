@@ -10,7 +10,7 @@ void state_init() {
     uint8_t buf_recv[FRAME_SIZE];
     uint8_t buf_send[FRAME_SIZE];
 
-    int type;
+    int type = 0;
 
     if (esp_mesh_is_root()) {
 	if (!is_server_connected) {
@@ -20,29 +20,34 @@ void state_init() {
     }
 
     /* Check if it has received an acknowledgement */
-    read_rxbuffer(buf_recv);
-    type = type_mesg(buf_recv);
+    while (type != 254) {
+	read_rxbuffer(buf_recv);
+	type = type_mesg(buf_recv);
+	ESP_LOGI(MESH_TAG, "received message of type %d", type);
 
-    if (type == B_ACK) {
-	if (!esp_mesh_is_root()) { //dummy test
-	    state = ADDR;
-	    ESP_LOGE(MESH_TAG, "Went into ADDR state");
-	    return;
-	}
-    } else if (type == INSTALL) {
-	if (esp_mesh_is_root()) { //dummy test
-	    uint8_t mac[6];
-	    get_mac(buf_recv, mac);
-	    add_route_table(mac, 0);
-	    state = CONF;
-	    ESP_LOGE(MESH_TAG, "Went into CONF state");
-	    return;
+	if (type == B_ACK) {
+	    if (!esp_mesh_is_root()) { //dummy test
+		state = ADDR;
+		ESP_LOGE(MESH_TAG, "Went into ADDR state");
+		return;
+	    }
+	} else if (type == INSTALL) {
+	    if (esp_mesh_is_root()) { //dummy test
+		uint8_t mac[6];
+		get_mac(buf_recv, mac);
+		add_route_table(mac, 0);
+		state = CONF;
+		ESP_LOGE(MESH_TAG, "Went into CONF state");
+		return;
+	    } 
 	}
     }
 
     /*Creation of BEACON frame */
     buf_send[VERSION] = SOFT_VERSION;
     buf_send[TYPE] = BEACON;
+    ESP_LOGI(MESH_TAG, "my mac : %d-%d-%d-%d-%d-%d", my_mac[0], my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
+    ESP_LOGI(MESH_TAG, "buf send : %d-%d-%d-%d-%d-%d-%d-%d", buf_send[0], buf_send[1], buf_send[2], buf_send[3], buf_send[4], buf_send[5], buf_send[6], buf_send[7]);
     copy_mac(my_mac, buf_send+DATA);
     //Rajout version, checksum, etc...
     int head = write_txbuffer(buf_send, FRAME_SIZE);

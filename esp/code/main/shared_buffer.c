@@ -64,9 +64,7 @@ looptx:
 void read_rxbuffer(uint8_t * data) {
   pthread_mutex_lock(&rxbuf_read);
   if (rxbuf_free_size != RXB_SIZE) {
-    //ESP_LOGI(MESH_TAG, "Asking type of trame at %d - %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", rxbuf_tail, reception_buffer[(rxbuf_tail+0)%RXB_SIZE], reception_buffer[(rxbuf_tail+1)%RXB_SIZE], reception_buffer[(rxbuf_tail+2)%RXB_SIZE], reception_buffer[(rxbuf_tail+3)%RXB_SIZE], reception_buffer[(rxbuf_tail+4)%RXB_SIZE], reception_buffer[(rxbuf_tail+5)%RXB_SIZE], reception_buffer[(rxbuf_tail+6)%RXB_SIZE], reception_buffer[(rxbuf_tail+7)%RXB_SIZE], reception_buffer[(rxbuf_tail+8)%RXB_SIZE], reception_buffer[(rxbuf_tail+9)%RXB_SIZE], reception_buffer[(rxbuf_tail+10)%RXB_SIZE]);
     int type = get_size(reception_buffer[(rxbuf_tail+TYPE) % RXB_SIZE]);
-    //ESP_LOGI(MESH_TAG, "Read message of type %d and size %d at %d- %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", reception_buffer[(rxbuf_tail+TYPE) % RXB_SIZE], type, rxbuf_tail, reception_buffer[(rxbuf_tail+0)%RXB_SIZE], reception_buffer[(rxbuf_tail+1)%RXB_SIZE], reception_buffer[(rxbuf_tail+2)%RXB_SIZE], reception_buffer[(rxbuf_tail+3)%RXB_SIZE], reception_buffer[(rxbuf_tail+4)%RXB_SIZE], reception_buffer[(rxbuf_tail+5)%RXB_SIZE], reception_buffer[(rxbuf_tail+6)%RXB_SIZE], reception_buffer[(rxbuf_tail+7)%RXB_SIZE], reception_buffer[(rxbuf_tail+8)%RXB_SIZE], reception_buffer[(rxbuf_tail+9)%RXB_SIZE], reception_buffer[(rxbuf_tail+10)%RXB_SIZE]);
     for (int i = 0; i < type; i++) {
       data[i] = reception_buffer[(rxbuf_tail + i) % RXB_SIZE];
     }

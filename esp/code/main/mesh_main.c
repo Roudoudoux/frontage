@@ -3,7 +3,7 @@
 #include <lwip/sockets.h>
 #include <pthread.h>
 
-#define __MAIN__
+//#define __MAIN__
 
 #include "mesh.h"
 #include "utils.h"
@@ -17,25 +17,26 @@
 /*******************************************************
  *                Variable Definitions
  *******************************************************/
-const char *MESH_TAG = "mesh_main";
-static const uint8_t MESH_ID[6] = { 0x77, 0x77, 0x77, 0x77, 0x77, 0x77};
+
+char * MESH_TAG = "mesh_main";
+uint8_t MESH_ID[6] = { 0x77, 0x77, 0x77, 0x77, 0x77, 0x77};
 
 bool is_running = true;
-static bool is_mesh_connected = false;
-static mesh_addr_t mesh_parent_addr;
-static int mesh_layer = -1;
+bool is_mesh_connected = false;
+mesh_addr_t mesh_parent_addr;
+int mesh_layer = -1;
 uint8_t my_mac[6] = {0};
 unsigned int state = INIT;
 bool is_asleep = false;
 uint16_t current_sequence = 0;
 
 /*Variable du socket */
-static struct sockaddr_in tcpServerAddr;
+struct sockaddr_in tcpServerAddr;
 uint32_t sock_fd;
 bool is_server_connected = false;
 
 /* Table de routage Arbalet Mesh*/
-struct node route_table[CONFIG_MESH_ROUTE_TABLE_SIZE];
+//struct node route_table[CONFIG_MESH_ROUTE_TABLE_SIZE];
 int route_table_size = 0;
 //static int num[CONFIG_MESH_ROUTE_TABLE_SIZE];
 
@@ -367,6 +368,7 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_mesh_set_config(&cfg));
     /* Initialisation de l'adresse MAC*/
     esp_efuse_mac_get_default(my_mac);
+    ESP_LOGI(MESH_TAG, "my mac : %d-%d-%d-%d-%d-%d", my_mac[0], my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
     /* mesh start */
     ESP_ERROR_CHECK(esp_mesh_start());
     ESP_LOGI(MESH_TAG, "mesh starts successfully, heap:%d, %s\n",  esp_get_free_heap_size(),

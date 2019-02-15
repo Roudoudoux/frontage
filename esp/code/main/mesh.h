@@ -66,17 +66,16 @@ struct node {
     bool state; /**< Indicate if card is currently connected to the root */
 };
 
-#ifndef __MAIN__
-extern struct node *route_table;
+struct node route_table[CONFIG_MESH_ROUTE_TABLE_SIZE];
 extern int route_table_size;
-extern const char *MESH_TAG;
-extern const uint8_t *MESH_ID;
+extern char *MESH_TAG;
+extern uint8_t MESH_ID[6];
 
 extern bool is_running;
 extern bool is_mesh_connected;
 extern mesh_addr_t mesh_parent_addr;
 extern int mesh_layer;
-extern uint8_t *my_mac;
+extern uint8_t my_mac[6];
 extern unsigned int state;
 extern bool is_asleep;
 extern uint16_t current_sequence;
@@ -87,12 +86,9 @@ extern uint32_t sock_fd;
 extern bool is_server_connected;
 
 /* Table de routage Arbalet Mesh*/
-extern struct node *route_table;
 extern int route_table_size;
-extern int *num;
 
 void connect_to_server();
 void add_route_table(uint8_t * mac, int pos);
-#endif
 
 #endif

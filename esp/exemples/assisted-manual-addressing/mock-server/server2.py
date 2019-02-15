@@ -1,4 +1,5 @@
 import socket
+import select
 import sys
 import os, fcntl
 import time
@@ -29,7 +30,7 @@ AMA_INIT = 61
 AMA_COLOR = 62
 SLEEP_SERVER = 81
 SLEEP_MESH = 82
-WAKE_UP = 89
+SLEEP_WAKEUP = 89
 
 #Field
 
@@ -50,50 +51,75 @@ var = None
 tab=[]
 comp = 0
 dic = {}
+
+#inputs for columns and rows
+cols=2
+rows=3
+
 #Declaration of functions
 
-def variable_crc_computer(frame, length, offset, frequency) :
-    crc_bool = 0
-    i = offset
-
-    if frame != None :
-        while (i < length) :
-            crc_bool = crc_bool + frame[i]
-            i = i + frequency
-    return crc_bool % 2
-
-def frame_crc_computer(frame, length, crc_table) :
-    if (frame != None) :
-        crc_table[0] = variable_crc_computer(frame, length, 0, 1)
-        crc_table[1] = variable_crc_computer(frame, length, 0, 2)
-        crc_table[2] = variable_crc_computer(frame, length, 1, 2)
-        crc_table[3] = variable_crc_computer(frame, length, 0, 3)
-        crc_table[4] = variable_crc_computer(frame, length, 1, 3)
-        crc_table[5] = variable_crc_computer(frame, length, 2, 3)
-        crc_table[6] = sum(crc_table)%2
-
 def crc_get(frame) :
-    crc_table = [0] * 7
-    size = len(frame) 
-    frame2 = [0] * (size-1) * 8
+    offset = 0
+    size = len(frame)
+    b1 = b2 = b3 = b4 = b5 = b6 = 0
     for i in range(0, size-1) :
-        for j in range(0, 8) :
-            frame2[(i*8)+j] = (frame[i] & (1 << j)) >> j
-    frame_crc_computer(frame2, (size - 1)*8, crc_table)
-    crc = crc_table[0] << 6 | crc_table[1] << 5 | crc_table[2] << 4 | crc_table[3] << 3 | crc_table[4] << 2 | crc_table[5] << 1 | crc_table[6]
+        B1 = (frame[i] & 1);
+        B2 = (frame[i] & 2) >> 1;
+        B3 = (frame[i] & 4) >> 2;
+        B4 = (frame[i] & 8) >> 3;
+        B5 = (frame[i] & 16) >> 4;
+        B6 = (frame[i] & 32) >> 5;
+        B7 = (frame[i] & 64) >> 6;
+        B8 = (frame[i] & 128) >> 7;
+        b1 = b1 + B1 + B2 + B3 + B4 + B5 + B6 + B7 + B8;
+        b2 = b2 + B2 + B4 + B6 + B8;
+        b3 = b3 + B1 + B3 + B5 + B7;
+        if (offset == 0) :
+            b4 = b4 + B8 + B5 + B2
+            b5 = b5 + B7 + B4 + B1
+            b6 = b6 + B6 + B3
+        elif offset == 1 :
+            b4 = b4 + B7 + B4 + B1
+            b5 = b5 + B6 + B3
+            b6 = b6 + B8 + B5 + B2
+        else :
+            b4 = b4 + B6 + B3
+            b5 = b5 + B8 + B5 + B2
+            b6 = b6 + B7 + B4 + B1
+        offset = (offset + 1)%3
+    crc = b1%2 << 6 | b2%2 << 5 | b3%2 << 4 | b4%2 << 3 | b5%2 << 2 | b6%2 << 1 | (b1 + b2 + b3 + b4 + b5 + b6)%2
     frame[size-1] = crc
 
 def crc_check(frame) :
-    print(frame)
-    crc_table = [0] * 7
-    size = len(frame) 
-    frame2 = [0] * (size-1) * 8
+    offset = 0
+    size = len(frame)
+    b1 = b2 = b3 = b4 = b5 = b6 = 0
     for i in range(0, size-1) :
-        for j in range(0, 8) :
-            frame2[(i*8)+j] = (frame[i] & (1 << j)) >> j
-    frame_crc_computer(frame2, (size - 1)*8, crc_table)
-    crc = crc_table[0] << 6 | crc_table[1] << 5 | crc_table[2] << 4 | crc_table[3] << 3 | crc_table[4] << 2 | crc_table[5] << 1 | crc_table[6]
-    print("Comparing CRC "+str(frame[size-1])+" and "+str(crc))
+        B1 = (frame[i] & 1);
+        B2 = (frame[i] & 2) >> 1;
+        B3 = (frame[i] & 4) >> 2;
+        B4 = (frame[i] & 8) >> 3;
+        B5 = (frame[i] & 16) >> 4;
+        B6 = (frame[i] & 32) >> 5;
+        B7 = (frame[i] & 64) >> 6;
+        B8 = (frame[i] & 128) >> 7;
+        b1 = b1 + B1 + B2 + B3 + B4 + B5 + B6 + B7 + B8;
+        b2 = b2 + B2 + B4 + B6 + B8;
+        b3 = b3 + B1 + B3 + B5 + B7;
+        if (offset == 0) :
+            b4 = b4 + B8 + B5 + B2
+            b5 = b5 + B7 + B4 + B1
+            b6 = b6 + B6 + B3
+        elif offset == 1 :
+            b4 = b4 + B7 + B4 + B1
+            b5 = b5 + B6 + B3
+            b6 = b6 + B8 + B5 + B2
+        else :
+            b4 = b4 + B6 + B3
+            b5 = b5 + B8 + B5 + B2
+            b6 = b6 + B7 + B4 + B1
+        offset = (offset + 1)%3
+    crc = b1%2 << 6 | b2%2 << 5 | b3%2 << 4 | b4%2 << 3 | b5%2 << 2 | b6%2 << 1 | (b1 + b2 + b3 + b4 + b5 + b6)%2
     return frame[size-1] == crc
 
 def msg_install(data):
@@ -159,11 +185,22 @@ def state_color():
     G = (0,255,0)
     B = (0,0,255)
     W = (255,255,255)
-    color1 = [[R,G],[B,W]]
-    color2 = [[W,R],[G,B]]
-    color3 = [[B,W],[R,G]]
-    color4 = [[G,B],[W,R]]
-    sequence = [color1, color2, color3, color4]
+
+    sequence = []
+    color_selection = [R, G, B, W]
+
+    #generation of a 4-couloured pattern long sequence
+    #which will be displayed by the esp32
+    for k in range(0,4) :
+        color = []
+        color_selecter = k
+        for i in range(0, rows) :
+            line = []
+            for j in range(0, cols) :
+                line.append(color_selection[color_selecter])
+                color_selecter = (color_selecter + 1) % 4
+            color.append(line)
+        sequence.append(color)
     i=0
     goon = 'Y'
     print("entre dans l'etape color")
@@ -171,56 +208,58 @@ def state_color():
     while (turn < 200):
         array = msg_color(sequence[i])
         conn.send(array)
-        time.sleep(1)
+        time.sleep(0.1)
         i = (i+1) % 4
         turn += 1
 
-def state_ama():
+def state_ama():#Corriger les trames de verifications.  
     global dic, conn, var
     R = (255,0,0)
     G = (0,255,0)
     D = (0,0,0)
-    color = [[D,D],[D,D]]
+    color = []
+    for k in range(0, rows) :
+        line = []
+        for i in range(0, cols) :
+            line.append(D)
+        color.append(line)
     array = msg_ama(AMA_INIT)
     conn.send(array)
-    for i in range(0, len(dic)):
+    i = 0
+    while i < len(dic): #'for i in range' is not affected by i modification, it's an enumeration.
         ((col, row), mac)=dic.get(i)
         print("Sent color to %d:%d:%d:%d:%d:%d" % (int(mac[0]), int(mac[1]), int(mac[2]), int(mac[3]), int(mac[4]), int(mac[5])))
         array=msg_color(color, i, R)
         print(array)
         conn.send(array)
         print("allumage en rouge envoyé")
-        #label .pause
         (x, y) = eval(input("Which pixel is red ? (row, col)"))
-        #x = input("Row of the pixel lighting in red")
-        #y = input("Col of the pixel lighting in red")
         dic[i]=((x,y), mac)
         print(x, y)
         time.sleep(1)
-        array = msg_color(color, i, G)
+        color[x][y] = G#No verification possible??
+        array = msg_color(color)#, i, G)
         print(array)
         conn.send(array)
+        color[x][y] = D
         print("allumage en green envoyé")
-        #time.sleep(5)
-        #if(var == 'p'):
-        #    var = None
-        #    array = msg_color(color, i, D)
-        #    conn.send(array)
-        #    goto .pause
         ok = input("continue addressage? [Y/n]")
-        array = msg_color(color, i, D)
-        conn.send(array)
-        print("extinction du pixel envoyé")
-        if (ok == 'n') :
-            i-=1
+        #array = msg_color(color, i, D)
+        #conn.send(array)
+        #print("extinction du pixel envoyé")
+        if (ok != 'n') :
+            i+=1
     array = msg_ama(AMA_COLOR)
     conn.send(array)
 
 def initialisation():
-    global conn, addr, s
+    global conn, addr, s, rows, cols
     # socket creation
+    rows = int(input("Please enter number of rows : "))
+    cols = int(input("Please enter number of columns : "))
+    
     s= socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print('Socket has been created')
+    print("Socket has been created")
     # socket binding
     while True:
         try :
@@ -228,7 +267,7 @@ def initialisation():
             s.listen(11)
         except socket.error as msg:
             continue
-            print('Binding has failed\n Err code :' + str(msg[0]) + '\n msg : ' + msg[1])
+            print("Binding has failed\n Err code :" + str(msg[0]) + "\n msg : " + msg[1])
             sys.exit()  
         break
     # what is it for ?
@@ -304,7 +343,7 @@ def get_macs():
         except :
             pass
         if (data != "" and crc_check(data[0:16])) :
-            if data[0] == BEACON :
+            if data[TYPE] == BEACON :
                 print("BEACON : %d-%d-%d-%d-%d-%d" % (int(data[DATA]), int(data[DATA+1]), int(data[DATA+2]), int(data[DATA+3]), int(data[DATA+4]), int(data[DATA+5])))
                 mac = [int(data[DATA]), int(data[DATA+1]), int(data[DATA+2]), int(data[DATA+3]), int(data[DATA+4]), int(data[DATA+5])]
                 if mac in tab :
@@ -330,8 +369,8 @@ def set_sleep() :
     array[VERSION] = SOFT_VERSION
     array[TYPE] = SLEEP
     array[DATA] = SLEEP_SERVER
-    conn.send(array)
     crc_get(array)
+    conn.send(array)
     time.sleep(10)
     
 def set_wakeup() :
@@ -349,10 +388,14 @@ def close_co():
         addr.close()
 
 def clean() : #DEBUG FUNCTION, NOT TO BE KEPT
-    data = "a"
-    while data != "" :
+    is_readable = [s]
+    is_writable = []
+    is_error = []
+    r, w, e = select.select(is_readable, is_writable, is_error, 1.0)
+    while r :
         data = conn.recv(1500)
-        print(data)
+        print(data, len(data))
+        r, w, e = select.select(is_readable, is_writable, is_error, 1.0)
 
 def stop() :
     while(1):
@@ -361,21 +404,25 @@ def stop() :
             close_co()
             sys.exit()
 
-while True :
-    try :
-        if (not initialisated) :
-            #threading.Thread(target=stop).start()
-            initialisation()
-            set_connection()
-            get_macs()
-            state_ama()
-            state_color()
-            set_sleep()
-        else :
-            clean()
-            wake_up()
-            state_color()
-    except :
-        print("error")
-        close_co()
-        sys.exit()
+def main() : #Kinda main-like. You can still put executable code between function to do tests outside of main
+    while True :
+        try :
+            if (not initialisated) :
+                #threading.Thread(target=stop).start()
+                initialisation()
+                set_connection()
+                get_macs()
+                state_ama()
+                state_color()
+                set_sleep()
+            else :
+                
+                wake_up()
+                state_color()
+        except :
+            print("error")
+            close_co()
+            sys.exit()
+
+if __name__ == '__main__' :
+    main()
