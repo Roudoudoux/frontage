@@ -208,7 +208,7 @@ def state_color():
     while (turn < 200):
         array = msg_color(sequence[i])
         conn.send(array)
-        time.sleep(0.1)
+        time.sleep(0.01)
         i = (i+1) % 4
         turn += 1
 

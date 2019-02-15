@@ -149,7 +149,6 @@ esp_err_t esp_mesh_comm_p2p_start(void)
     static bool is_comm_p2p_started = false;
     if (!is_comm_p2p_started) {
         is_comm_p2p_started = true;
-        connect_to_server();
 	xTaskCreate(mesh_reception, "ESPRX", 3072, NULL, 5, NULL);
 	xTaskCreate(esp_mesh_state_machine, "STMC", 3072, NULL, 5, NULL);
     }

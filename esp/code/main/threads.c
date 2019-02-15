@@ -49,20 +49,20 @@ void server_reception(void * arg) {
         ESP_LOGE(MESH_TAG, "Communication Socket error");
         continue;
       }
-      ESP_LOGI(MESH_TAG, "Message received from server of len %d = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", len, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9], buf[10]);
-      if (buf[VERSION] != SOFT_VERSION) {
-        ESP_LOGE(MESH_TAG, "Software version not matching with server");
-        continue;
-      } if (!check_crc(buf, len)) {
-        ESP_LOGE(MESH_TAG, "Invalid CRC from server");
-        continue;
+      //ESP_LOGI(MESH_TAG, "Message received from server of len %d = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", len, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9], buf[10]);
+      int head = 0;
+      while(head < len) {
+	  int size = get_size(buf[head+TYPE]);
+	  if (buf[VERSION] != SOFT_VERSION) {
+	      ESP_LOGE(MESH_TAG, "Software version not matching with server");
+	      continue;
+	  } if (!check_crc(buf+head, size)) {
+	      ESP_LOGE(MESH_TAG, "Invalid CRC from server");
+	      continue;
+	  }
+	  write_rxbuffer(buf+head, size);
+	  head = head + size;
       }
-      //pthread_mutex_lock(&txbuf_write);
-      write_rxbuffer(buf, len);
-      //pthread_mutex_unlock(&txbuf_write);
-      /*if (is_asleep) {
-      vTaskDelay((TIME_SLEEP * 1000) / portTICK_PERIOD_MS);//Sleep induce delay of 5 s for everything
-    }*/
   }
 
   vTaskDelete(NULL);
@@ -74,15 +74,15 @@ void mesh_emission(void * arg) {
     uint8_t mesg[FRAME_SIZE];
     read_txbuffer(mesg, (int) arg);
 
-    ESP_LOGI(MESH_TAG, "Message to mesh = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", mesg[0], mesg[1], mesg[2], mesg[3], mesg[4], mesg[5], mesg[6], mesg[7], mesg[8], mesg[9], mesg[10], mesg[11], mesg[12], mesg[13], mesg[14], mesg[15]);
+    //ESP_LOGI(MESH_TAG, "Message to mesh = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", mesg[0], mesg[1], mesg[2], mesg[3], mesg[4], mesg[5], mesg[6], mesg[7], mesg[8], mesg[9], mesg[10], mesg[11], mesg[12], mesg[13], mesg[14], mesg[15]);
 
-    ESP_LOGI(MESH_TAG, "calculating CRC...");
+    //ESP_LOGI(MESH_TAG, "calculating CRC...");
     set_crc(mesg, FRAME_SIZE);
-    ESP_LOGI(MESH_TAG, "CRC calculated.");
+    //ESP_LOGI(MESH_TAG, "CRC calculated.");
     data.data = mesg;
     data.size = FRAME_SIZE;
 
-    ESP_LOGI(MESH_TAG, "Message to mesh = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", mesg[0], mesg[1], mesg[2], mesg[3], mesg[4], mesg[5], mesg[6], mesg[7], mesg[8], mesg[9], mesg[10], mesg[11], mesg[12], mesg[13], mesg[14], mesg[15]);
+    //ESP_LOGI(MESH_TAG, "Message to mesh = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", mesg[0], mesg[1], mesg[2], mesg[3], mesg[4], mesg[5], mesg[6], mesg[7], mesg[8], mesg[9], mesg[10], mesg[11], mesg[12], mesg[13], mesg[14], mesg[15]);
 
     switch(type_mesg(mesg)) {
     case BEACON: //Send a beacon to the root.

@@ -23,7 +23,7 @@ void state_init() {
     while (type != 254) {
 	read_rxbuffer(buf_recv);
 	type = type_mesg(buf_recv);
-	ESP_LOGI(MESH_TAG, "received message of type %d", type);
+	//ESP_LOGI(MESH_TAG, "received message of type %d", type);
 
 	if (type == B_ACK) {
 	    if (!esp_mesh_is_root()) { //dummy test
@@ -46,8 +46,8 @@ void state_init() {
     /*Creation of BEACON frame */
     buf_send[VERSION] = SOFT_VERSION;
     buf_send[TYPE] = BEACON;
-    ESP_LOGI(MESH_TAG, "my mac : %d-%d-%d-%d-%d-%d", my_mac[0], my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
-    ESP_LOGI(MESH_TAG, "buf send : %d-%d-%d-%d-%d-%d-%d-%d", buf_send[0], buf_send[1], buf_send[2], buf_send[3], buf_send[4], buf_send[5], buf_send[6], buf_send[7]);
+    //ESP_LOGI(MESH_TAG, "my mac : %d-%d-%d-%d-%d-%d", my_mac[0], my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
+    //ESP_LOGI(MESH_TAG, "buf send : %d-%d-%d-%d-%d-%d-%d-%d", buf_send[0], buf_send[1], buf_send[2], buf_send[3], buf_send[4], buf_send[5], buf_send[6], buf_send[7]);
     copy_mac(my_mac, buf_send+DATA);
     //Rajout version, checksum, etc...
     int head = write_txbuffer(buf_send, FRAME_SIZE);
@@ -117,9 +117,9 @@ void state_addr() {
 	}
     }
     else if (type == COLOR) { // Root only
-	ESP_LOGI(MESH_TAG, "Message = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", buf_recv[0], buf_recv[1], buf_recv[2], buf_recv[3], buf_recv[4], buf_recv[5], buf_recv[6], buf_recv[7], buf_recv[8], buf_recv[9], buf_recv[10]);
+	//ESP_LOGI(MESH_TAG, "Message = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", buf_recv[0], buf_recv[1], buf_recv[2], buf_recv[3], buf_recv[4], buf_recv[5], buf_recv[6], buf_recv[7], buf_recv[8], buf_recv[9], buf_recv[10]);
 	uint16_t sequ = buf_recv[DATA] << 8 | buf_recv[DATA+1];
-	ESP_LOGI(MESH_TAG, "comparing %d and %d", sequ, current_sequence);
+	//ESP_LOGI(MESH_TAG, "comparing %d and %d", sequ, current_sequence);
 	if (sequ > current_sequence || current_sequence - sequ > SEQU_SEUIL) {
 	    current_sequence = sequ;
 	    buf_send[VERSION] = SOFT_VERSION;
@@ -139,9 +139,9 @@ void state_addr() {
 	}
     }
     else if (type == COLOR_E) {//Mixte
-	ESP_LOGI(MESH_TAG, "Message = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", buf_recv[0], buf_recv[1], buf_recv[2], buf_recv[3], buf_recv[4], buf_recv[5], buf_recv[6], buf_recv[7], buf_recv[8], buf_recv[9], buf_recv[10], buf_recv[11], buf_recv[12], buf_recv[13], buf_recv[14], buf_recv[15]);
+	//ESP_LOGI(MESH_TAG, "Message = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", buf_recv[0], buf_recv[1], buf_recv[2], buf_recv[3], buf_recv[4], buf_recv[5], buf_recv[6], buf_recv[7], buf_recv[8], buf_recv[9], buf_recv[10], buf_recv[11], buf_recv[12], buf_recv[13], buf_recv[14], buf_recv[15]);
 	uint16_t sequ = buf_recv[DATA]  << 8 | buf_recv[DATA+1];
-	ESP_LOGI(MESH_TAG, "comparing %d and %d", sequ, current_sequence);
+	//ESP_LOGI(MESH_TAG, "comparing %d and %d", sequ, current_sequence);
 	if (sequ > current_sequence || current_sequence - sequ > SEQU_SEUIL) {
 	    current_sequence = sequ;
 	    display_color(buf_recv);
@@ -169,7 +169,7 @@ void state_color() {
     type = type_mesg(buf_recv);
 
     if (type == COLOR) { // Root only
-	ESP_LOGI(MESH_TAG, "Message = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", buf_recv[0], buf_recv[1], buf_recv[2], buf_recv[3], buf_recv[4], buf_recv[5], buf_recv[6], buf_recv[7], buf_recv[8], buf_recv[9], buf_recv[10]);
+	//ESP_LOGI(MESH_TAG, "Message = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", buf_recv[0], buf_recv[1], buf_recv[2], buf_recv[3], buf_recv[4], buf_recv[5], buf_recv[6], buf_recv[7], buf_recv[8], buf_recv[9], buf_recv[10]);
 	uint16_t sequ = buf_recv[DATA] << 8 | buf_recv[DATA+1];
 	if (sequ > current_sequence || current_sequence - sequ > SEQU_SEUIL) {
 	    current_sequence = sequ;
@@ -190,7 +190,7 @@ void state_color() {
 	}
     }
     else if (type == COLOR_E) {//Mixte
-	ESP_LOGI(MESH_TAG, "Message = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", buf_recv[0], buf_recv[1], buf_recv[2], buf_recv[3], buf_recv[4], buf_recv[5], buf_recv[6], buf_recv[7], buf_recv[8], buf_recv[9], buf_recv[10], buf_recv[11], buf_recv[12], buf_recv[13], buf_recv[14], buf_recv[15]);
+	//ESP_LOGI(MESH_TAG, "Message = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", buf_recv[0], buf_recv[1], buf_recv[2], buf_recv[3], buf_recv[4], buf_recv[5], buf_recv[6], buf_recv[7], buf_recv[8], buf_recv[9], buf_recv[10], buf_recv[11], buf_recv[12], buf_recv[13], buf_recv[14], buf_recv[15]);
 	uint16_t sequ = buf_recv[DATA] << 8 | buf_recv[DATA+1];
 	if (sequ > current_sequence || current_sequence - sequ > SEQU_SEUIL) {
 	    current_sequence = sequ;
