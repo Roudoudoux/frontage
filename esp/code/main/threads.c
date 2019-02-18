@@ -49,15 +49,17 @@ void server_reception(void * arg) {
         ESP_LOGE(MESH_TAG, "Communication Socket error");
         continue;
       }
-      //ESP_LOGI(MESH_TAG, "Message received from server of len %d = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", len, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9], buf[10]);
+      ESP_LOGI(MESH_TAG, "Message received from server of len %d = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", len, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9], buf[10], buf[11], buf[12], buf[13], buf[14], buf[15]);
       int head = 0;
       while(head < len) {
 	  int size = get_size(buf[head+TYPE]);
 	  if (buf[VERSION] != SOFT_VERSION) {
 	      ESP_LOGE(MESH_TAG, "Software version not matching with server");
+	      head = head + size;
 	      continue;
 	  } if (!check_crc(buf+head, size)) {
 	      ESP_LOGE(MESH_TAG, "Invalid CRC from server");
+	      head = head + size;
 	      continue;
 	  }
 	  write_rxbuffer(buf+head, size);
@@ -88,7 +90,7 @@ void mesh_emission(void * arg) {
     case BEACON: //Send a beacon to the root.
         err = esp_mesh_send(NULL, &data, MESH_DATA_P2P, NULL, 0);
 	if (err != 0) {
-	    perror("Beacon failed");
+	    //perror("Beacon failed");
 	    ESP_LOGE(MESH_TAG, "Couldn't send BEACON to root");
 	    //state = ERROR_S;
 	}
@@ -99,7 +101,7 @@ void mesh_emission(void * arg) {
 	    get_mac(mesg, to.addr);
 	    err = esp_mesh_send(&to, &data, MESH_DATA_P2P, NULL, 0);
 	    if (err != 0) {
-		perror("Color fail");
+		//perror("Color fail");
 		ESP_LOGE(MESH_TAG, "Couldn't send COLOR to "MACSTR"", MAC2STR(to.addr));
 		//state = ERROR_S;
 	    }
@@ -111,7 +113,7 @@ void mesh_emission(void * arg) {
 	    get_mac(mesg, to.addr);
 	    err = esp_mesh_send(&to, &data, MESH_DATA_P2P, NULL, 0);
 	    if (err != 0) {
-		perror("B_ACK fail");
+		//perror("B_ACK fail");
 		ESP_LOGE(MESH_TAG, "Couldn't send B_ACK to "MACSTR" - %s", MAC2STR(to.addr), esp_err_to_name(err));
 	    }
 	}
@@ -136,7 +138,7 @@ void mesh_emission(void * arg) {
 	    if (!same_mac(route_table[i].card.addr, my_mac)) {
 		err = esp_mesh_send(&route_table[i].card, &data, MESH_DATA_P2P, NULL, 0);
 		if (err != 0) {
-		    perror("message fail");
+		    //perror("message fail");
 		    ESP_LOGE(MESH_TAG, "Couldn't send message %d to "MACSTR"", type_mesg(mesg), MAC2STR(route_table[i].card.addr));
 		}
 	    }
