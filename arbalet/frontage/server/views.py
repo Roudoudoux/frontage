@@ -380,3 +380,12 @@ def reset_pixel_position(user):
     # print_flush(body)
     # return jsonify(row=body['row'],
     #                column=body['column'])
+
+@blueprint.route('/b/admin/settings/mesh/pixel/confirm', methods=['POST'])
+@authentication_required
+def confirm_pixel_position(user):
+    if not is_admin(user):
+        abort(403, "Forbidden Bru")
+
+    print_flush("confirmed")
+    return jsonify(success='true')
