@@ -81,9 +81,9 @@ class SchedulerState(object):
         session.close()
 
     @staticmethod
-    def add_cell(x, y, mac):
+    def add_cell(x, y, mac_address):
         session = session_factory()
-        table = CellTableModel(x, y, mac)
+        table = CellTableModel(x, y, mac_address)
         session.add(table)
         session.commit()
         session.close()
