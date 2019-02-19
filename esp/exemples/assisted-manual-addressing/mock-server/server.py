@@ -313,6 +313,7 @@ def stop() :
 
 
 #Le MAIN est ici
+#Y a pas de main en Python, il parse ton code et l'exécute en temps réel.
 
 while True :
     try :

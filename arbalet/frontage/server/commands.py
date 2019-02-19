@@ -3,6 +3,7 @@ import os
 import click
 from db.base import session_factory, Base, engine
 from db.models import FappModel, ConfigModel, DimensionsModel, CellTableModel
+
 from utils.security import hash_password
 from apps import get_app_names
 from getpass import getpass
@@ -84,7 +85,7 @@ def initiate_db_dimensions():
         click.echo("No dimensions found, initiating dimensions creation...")
         conf = DimensionsModel()
         session.add(conf)
-    
+
     session.commit()
     session.close()
 
