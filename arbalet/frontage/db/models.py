@@ -40,7 +40,7 @@ class CellTableModel(Base):
     uniqid = Column(String(36), primary_key=True)
     X = Column(Integer)
     Y = Column(Integer)
-    MacAddress = Column(Integer) #A modifier en MacAddress = Column(String(36)) pour voir l'erreur
+    MacAddress = Column(String(60))
 
     def __init__(self, x, y, macAddress):
         self.uniqid = str(uuid4())
