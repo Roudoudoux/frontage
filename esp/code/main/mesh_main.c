@@ -32,6 +32,7 @@ uint16_t current_sequence = 0;
 
 /*Variable du socket */
 struct sockaddr_in tcpServerAddr;
+struct sockaddr_in tcpServerReset;
 uint32_t sock_fd;
 bool is_server_connected = false;
 
@@ -96,6 +97,45 @@ void connect_to_server() {
 	ESP_LOGW(MESH_TAG, "Connected to Server");
 	xTaskCreate(server_reception, "SERRX", 6000, NULL, 5, NULL);
 	is_server_connected = true;
+    }
+}
+
+void reset_and_connect_server() {
+    
+    while(!is_server_connected) {
+	sock_fd = socket(AF_INET, SOCK_STREAM, 0); // Ouverture du socket avec le serveur.
+	if (sock_fd == -1) {
+	    ESP_LOGE(MESH_TAG, "Socket_fail");
+	    continue;
+	}
+	int ret = connect(sock_fd, (struct sockaddr *)&tcpServerReset, sizeof(struct sockaddr));
+	if (ret < 0) {
+	    perror("Erreur socket : ");
+	    ESP_LOGE(MESH_TAG, "Connection fail to reset Port");
+	    close(sock_fd);
+	    continue;
+	} else {
+	    close(sock_fd);
+	    ESP_LOGI(MESH_TAG, "Send server reset request");
+	    while (!is_server_connected) {
+		sock_fd = socket(AF_INET, SOCK_STREAM, 0); // Ouverture du socket avec le serveur.
+		if (sock_fd == -1) {
+		    ESP_LOGE(MESH_TAG, "Socket_fail");
+		    continue;
+		}
+		ret = connect(sock_fd, (struct sockaddr *)&tcpServerAddr, sizeof(struct sockaddr));
+		if (ret < 0 && errno != 119) {
+		    perror("Erreur socket : ");
+		    ESP_LOGE(MESH_TAG, "Connection fail to com Port");
+		    close(sock_fd);
+		    continue;
+		}else {
+		    ESP_LOGW(MESH_TAG, "Connected to Server");
+		    xTaskCreate(server_reception, "SERRX", 6000, NULL, 5, NULL);
+		    is_server_connected = true;
+		}
+	    }
+	}
     }
 }
 
@@ -378,4 +418,9 @@ void app_main(void)
     tcpServerAddr.sin_addr.s_addr = inet_addr("10.42.0.1");
     tcpServerAddr.sin_len = sizeof(tcpServerAddr);
     tcpServerAddr.sin_port = htons(8080);
+    memset(&tcpServerReset, 0, sizeof(tcpServerReset));
+    tcpServerReset.sin_family = AF_INET;
+    tcpServerReset.sin_addr.s_addr = inet_addr("10.42.0.1");
+    tcpServerReset.sin_len = sizeof(tcpServerReset);
+    tcpServerReset.sin_port = htons(8081);
 }

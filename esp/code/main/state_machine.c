@@ -165,12 +165,26 @@ void state_color() {
     uint8_t buf_recv[1 + CONFIG_MESH_ROUTE_TABLE_SIZE * 3 + 4];
     uint8_t buf_send[FRAME_SIZE];
 
+    /*if (esp_mesh_is_root()) {
+	if (!is_server_connected) {
+	    reset_and_connect_server();
+	    //return;//Root can't progress if not connected to the server
+	}
+	}*/
+    if (esp_mesh_is_root()) {
+	if (!is_server_connected) {
+	    connect_to_server();
+	    return;//Root can't progress if not connected to the server
+	}
+    }
+    
     read_rxbuffer(buf_recv);
     type = type_mesg(buf_recv);
 
     if (type == COLOR) { // Root only
 	//ESP_LOGI(MESH_TAG, "Message = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", buf_recv[0], buf_recv[1], buf_recv[2], buf_recv[3], buf_recv[4], buf_recv[5], buf_recv[6], buf_recv[7], buf_recv[8], buf_recv[9], buf_recv[10]);
 	uint16_t sequ = buf_recv[DATA] << 8 | buf_recv[DATA+1];
+	ESP_LOGE(MESH_TAG, "Sequ = %d", sequ);
 	if (sequ > current_sequence || current_sequence - sequ > SEQU_SEUIL) {
 	    current_sequence = sequ;
 	    buf_send[VERSION] = SOFT_VERSION;

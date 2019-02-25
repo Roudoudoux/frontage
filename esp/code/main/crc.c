@@ -1,7 +1,7 @@
 #include <stdint.h>
-#include <assert.h>
-#include <stdio.h>
-//#include "crc.h"
+#include "crc.h"
+#include "mesh.h"
+
 
 /*
 uint8_t compute_crc(uint8_t * frame, uint16_t size){
@@ -59,6 +59,7 @@ void set_crc(uint8_t * frame, uint16_t size){
 }
 
 int check_crc(uint8_t * frame, uint16_t size) {
+    ESP_LOGW(MESH_TAG, "comparing %d and %d", frame[size-1], compute_crc(frame, size));
     return frame[size-1] == compute_crc(frame, size);
 }
 */

@@ -82,6 +82,7 @@ extern uint16_t current_sequence;
 
 /*Variable du socket */
 extern struct sockaddr_in tcpServerAddr;
+extern struct sockaddr_in tcpServerReset;
 extern uint32_t sock_fd;
 extern bool is_server_connected;
 
@@ -89,6 +90,7 @@ extern bool is_server_connected;
 extern int route_table_size;
 
 void connect_to_server();
+void reset_and_connect_server();
 void add_route_table(uint8_t * mac, int pos);
 
 #endif
