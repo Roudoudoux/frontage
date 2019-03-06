@@ -13,7 +13,7 @@ def crc_compute(frame) :
     global CRC_p, B0, B1, B2, B3, B4, B5, B6, B7
     b0 = b1 = b2 = b3 = b4 = b5 = b6 = b7= 0
     size = min(len(frame), CRC_p)
-    for i in range(0, size-1) :
+    for i in range(0, size) :
         b0 = b0 ^ (B0 & frame[i]);
         b1 = b1 ^ (B1 & frame[i]);
         b2 = b2 ^ (B2 & frame[i]);
@@ -32,11 +32,14 @@ def crc_get(frame):
         crc_size += 1
     offset = 0
     fsc = size - crc_size
+    print("Start :", frame)
     while (crc_size > 0):
         frame[size-crc_size] = crc_compute(frame[offset:fsc])
-        fsc -= CRC_p
+        print(frame[size-crc_size])
+        #fsc -= CRC_p
         crc_size-=1
         offset += CRC_p
+    print("Finish :", frame)
 
 def crc_check(frame) :
     global CRC_p
@@ -46,8 +49,13 @@ def crc_check(frame) :
         crc_size += 1
     offset = 0
     fsc = size - crc_size
+    print(frame)
+    print(frame[size-crc_size], crc_compute(frame[offset:fsc]))
     while (crc_size > 0 and frame[size-crc_size] == crc_compute(frame[offset:fsc])):
-        fsc -= CRC_p
+        #fsc -= CRC_p
         crc_size-=1
         offset += CRC_p
+        if (crc_size != 0) :
+            print(frame[size-crc_size], crc_compute(frame[offset:fsc]))
+    print(crc_size)
     return(crc_size == 0)

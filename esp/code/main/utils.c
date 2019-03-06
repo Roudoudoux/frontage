@@ -74,7 +74,11 @@ int same_mac(uint8_t * mac1, uint8_t * mac2) {
  */
 int get_size(uint8_t type) {
     if (type == COLOR) {
-	return 3 * route_table_size + 5;
+	int len = 3 * route_table_size + 4 + (3 * route_table_size + 4)/7;
+	if ((3 * route_table_size + 4) % 7 ==0) {
+	    return len;
+	}
+	return len + 1;
     } else {
 	return FRAME_SIZE;
     }

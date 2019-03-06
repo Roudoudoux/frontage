@@ -4,6 +4,8 @@ import sys
 import os, fcntl
 import time
 from threading import Thread
+from math import ceil
+from crc import *
 #import goto
 
 # CONSTANTS
@@ -31,74 +33,9 @@ SLEEP_WAKEUP = 89
 VERSION = 0
 TYPE = 1
 DATA = 2
-CHECKSUM = 15
 FRAME_SIZE = 16
 
 #Declaration of functions - Utils
-def crc_get(frame) :
-    offset = 0
-    size = len(frame)
-    b1 = b2 = b3 = b4 = b5 = b6 = 0
-    for i in range(0, size-1) :
-        B1 = (frame[i] & 1);
-        B2 = (frame[i] & 2) >> 1;
-        B3 = (frame[i] & 4) >> 2;
-        B4 = (frame[i] & 8) >> 3;
-        B5 = (frame[i] & 16) >> 4;
-        B6 = (frame[i] & 32) >> 5;
-        B7 = (frame[i] & 64) >> 6;
-        B8 = (frame[i] & 128) >> 7;
-        b1 = b1 + B1 + B2 + B3 + B4 + B5 + B6 + B7 + B8;
-        b2 = b2 + B2 + B4 + B6 + B8;
-        b3 = b3 + B1 + B3 + B5 + B7;
-        if (offset == 0) :
-            b4 = b4 + B8 + B5 + B2
-            b5 = b5 + B7 + B4 + B1
-            b6 = b6 + B6 + B3
-        elif offset == 1 :
-            b4 = b4 + B7 + B4 + B1
-            b5 = b5 + B6 + B3
-            b6 = b6 + B8 + B5 + B2
-        else :
-            b4 = b4 + B6 + B3
-            b5 = b5 + B8 + B5 + B2
-            b6 = b6 + B7 + B4 + B1
-        offset = (offset + 1)%3
-    crc = b1%2 << 6 | b2%2 << 5 | b3%2 << 4 | b4%2 << 3 | b5%2 << 2 | b6%2 << 1 | (b1 + b2 + b3 + b4 + b5 + b6)%2
-    print(crc)
-    frame[size-1] = crc
-
-def crc_check(frame) :
-    offset = 0
-    size = len(frame)
-    b1 = b2 = b3 = b4 = b5 = b6 = 0
-    for i in range(0, size-1) :
-        B1 = (frame[i] & 1);
-        B2 = (frame[i] & 2) >> 1;
-        B3 = (frame[i] & 4) >> 2;
-        B4 = (frame[i] & 8) >> 3;
-        B5 = (frame[i] & 16) >> 4;
-        B6 = (frame[i] & 32) >> 5;
-        B7 = (frame[i] & 64) >> 6;
-        B8 = (frame[i] & 128) >> 7;
-        b1 = b1 + B1 + B2 + B3 + B4 + B5 + B6 + B7 + B8;
-        b2 = b2 + B2 + B4 + B6 + B8;
-        b3 = b3 + B1 + B3 + B5 + B7;
-        if (offset == 0) :
-            b4 = b4 + B8 + B5 + B2
-            b5 = b5 + B7 + B4 + B1
-            b6 = b6 + B6 + B3
-        elif offset == 1 :
-            b4 = b4 + B7 + B4 + B1
-            b5 = b5 + B6 + B3
-            b6 = b6 + B8 + B5 + B2
-        else :
-            b4 = b4 + B6 + B3
-            b5 = b5 + B8 + B5 + B2
-            b6 = b6 + B7 + B4 + B1
-        offset = (offset + 1)%3
-    crc = b1%2 << 6 | b2%2 << 5 | b3%2 << 4 | b4%2 << 3 | b5%2 << 2 | b6%2 << 1 | (b1 + b2 + b3 + b4 + b5 + b6)%2
-    return frame[size-1] == crc
 
 def msg_install(data, comp):
     array = bytearray(16)
@@ -130,7 +67,7 @@ def msg_ama(amatype):
 
 def msg_color(colors, ama= -1, col= None):
     #print(colors)
-    array = bytearray(len(Main_communication.dic)*3 + 5)
+    array = bytearray(len(Main_communication.dic)*3 + 4 + ceil((len(Main_communication.dic)*3 + 4)/7))
     array[VERSION] = SOFT_VERSION
     array[TYPE] = COLOR
     Main_communication.sequence = (Main_communication.sequence + 1) % 65536

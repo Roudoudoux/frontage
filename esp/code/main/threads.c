@@ -91,7 +91,7 @@ void mesh_emission(void * arg) {
         err = esp_mesh_send(NULL, &data, MESH_DATA_P2P, NULL, 0);
 	if (err != 0) {
 	    //perror("Beacon failed");
-	    ESP_LOGE(MESH_TAG, "Couldn't send BEACON to root");
+	    ESP_LOGE(MESH_TAG, "Couldn't send BEACON to root - %s", esp_err_to_name(err));
 	    //state = ERROR_S;
 	}
 	break;
@@ -102,7 +102,7 @@ void mesh_emission(void * arg) {
 	    err = esp_mesh_send(&to, &data, MESH_DATA_P2P, NULL, 0);
 	    if (err != 0) {
 		//perror("Color fail");
-		ESP_LOGE(MESH_TAG, "Couldn't send COLOR to "MACSTR"", MAC2STR(to.addr));
+		ESP_LOGE(MESH_TAG, "Couldn't send COLOR to "MACSTR" - %s", MAC2STR(to.addr), esp_err_to_name(err));
 		//state = ERROR_S;
 	    }
 	}
@@ -139,7 +139,7 @@ void mesh_emission(void * arg) {
 		err = esp_mesh_send(&route_table[i].card, &data, MESH_DATA_P2P, NULL, 0);
 		if (err != 0) {
 		    //perror("message fail");
-		    ESP_LOGE(MESH_TAG, "Couldn't send message %d to "MACSTR"", type_mesg(mesg), MAC2STR(route_table[i].card.addr));
+		    ESP_LOGE(MESH_TAG, "Couldn't send message %d to "MACSTR" - %s", type_mesg(mesg), MAC2STR(route_table[i].card.addr), esp_err_to_name(err));
 		}
 	    }
 	}

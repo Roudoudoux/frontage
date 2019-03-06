@@ -49,6 +49,7 @@ void state_init() {
     //ESP_LOGI(MESH_TAG, "my mac : %d-%d-%d-%d-%d-%d", my_mac[0], my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
     //ESP_LOGI(MESH_TAG, "buf send : %d-%d-%d-%d-%d-%d-%d-%d", buf_send[0], buf_send[1], buf_send[2], buf_send[3], buf_send[4], buf_send[5], buf_send[6], buf_send[7]);
     copy_mac(my_mac, buf_send+DATA);
+    buf_send[13] = 42;
     //Rajout version, checksum, etc...
     int head = write_txbuffer(buf_send, FRAME_SIZE);
     if (esp_mesh_is_root()) {

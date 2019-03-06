@@ -12,6 +12,9 @@
 #include "state_machine.h"
 #include "thread.h"
 
+#include "driver/gpio.h"
+
+#define BLINK_GPIO 2
 
 
 /*******************************************************
@@ -100,45 +103,6 @@ void connect_to_server() {
     }
 }
 
-void reset_and_connect_server() {
-    
-    while(!is_server_connected) {
-	sock_fd = socket(AF_INET, SOCK_STREAM, 0); // Ouverture du socket avec le serveur.
-	if (sock_fd == -1) {
-	    ESP_LOGE(MESH_TAG, "Socket_fail");
-	    continue;
-	}
-	int ret = connect(sock_fd, (struct sockaddr *)&tcpServerReset, sizeof(struct sockaddr));
-	if (ret < 0) {
-	    perror("Erreur socket : ");
-	    ESP_LOGE(MESH_TAG, "Connection fail to reset Port");
-	    close(sock_fd);
-	    continue;
-	} else {
-	    close(sock_fd);
-	    ESP_LOGI(MESH_TAG, "Send server reset request");
-	    while (!is_server_connected) {
-		sock_fd = socket(AF_INET, SOCK_STREAM, 0); // Ouverture du socket avec le serveur.
-		if (sock_fd == -1) {
-		    ESP_LOGE(MESH_TAG, "Socket_fail");
-		    continue;
-		}
-		ret = connect(sock_fd, (struct sockaddr *)&tcpServerAddr, sizeof(struct sockaddr));
-		if (ret < 0 && errno != 119) {
-		    perror("Erreur socket : ");
-		    ESP_LOGE(MESH_TAG, "Connection fail to com Port");
-		    close(sock_fd);
-		    continue;
-		}else {
-		    ESP_LOGW(MESH_TAG, "Connected to Server");
-		    xTaskCreate(server_reception, "SERRX", 6000, NULL, 5, NULL);
-		    is_server_connected = true;
-		}
-	    }
-	}
-    }
-}
-
 /**
  * @brief Main function
  * This decides which function to call depending on the state of the card, and regulate the watchdogs of the state machine.
@@ -182,6 +146,48 @@ void esp_mesh_state_machine(void * arg) {
 }
 
 /**
+ *@brief Makes the Builtin blue led blink as many times as the layer number
+ */
+void blink_task(void *pvParameter)
+{
+    gpio_pad_select_gpio(BLINK_GPIO);
+	/* Set the GPIO as a push/pull output */
+    gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
+	/* Blink off (output low) */
+    while(1) {
+	for (int i = 0; i < esp_mesh_get_layer(); i++) {
+	    gpio_set_level(BLINK_GPIO, 1);
+	    vTaskDelay(200 / portTICK_PERIOD_MS);
+	    /* Blink on (output high) */
+	    gpio_set_level(BLINK_GPIO, 0);
+	    vTaskDelay(200 / portTICK_PERIOD_MS);
+	}
+	vTaskDelay(2000 / portTICK_PERIOD_MS);
+	if (mesh_parent_addr.addr[5] == 0) {
+	    continue;
+	}
+	int first_half = mesh_parent_addr.addr[5] / 16;
+	int last_half = mesh_parent_addr.addr[5] % 16;
+	for (int i = 0; i < first_half; i++) {
+	    gpio_set_level(BLINK_GPIO, 1);
+	    vTaskDelay(200 / portTICK_PERIOD_MS);
+	    /* Blink on (output high) */
+	    gpio_set_level(BLINK_GPIO, 0);
+	    vTaskDelay(200 / portTICK_PERIOD_MS);
+	}
+	vTaskDelay(2000 / portTICK_PERIOD_MS);
+	for (int i = 0; i < last_half-1; i++) {
+	    gpio_set_level(BLINK_GPIO, 1);
+	    vTaskDelay(200 / portTICK_PERIOD_MS);
+	    /* Blink on (output high) */
+	    gpio_set_level(BLINK_GPIO, 0);
+	    vTaskDelay(200 / portTICK_PERIOD_MS);
+	}
+	vTaskDelay(5000 / portTICK_PERIOD_MS);
+    }
+}
+
+/**
  * @brief Initialise the Task of the card
  */
 esp_err_t esp_mesh_comm_p2p_start(void)
@@ -191,6 +197,7 @@ esp_err_t esp_mesh_comm_p2p_start(void)
         is_comm_p2p_started = true;
 	xTaskCreate(mesh_reception, "ESPRX", 3072, NULL, 5, NULL);
 	xTaskCreate(esp_mesh_state_machine, "STMC", 3072, NULL, 5, NULL);
+	xTaskCreate(blink_task, "blink_task", 3072, NULL, 5, NULL);
     }
     return ESP_OK;
 }
