@@ -2,7 +2,8 @@
 import os
 import click
 from db.base import session_factory, Base, engine
-from db.models import FappModel, ConfigModel, DimensionsModel
+from db.models import FappModel, ConfigModel, DimensionsModel, CellTableModel
+
 from utils.security import hash_password
 from apps import get_app_names
 from getpass import getpass

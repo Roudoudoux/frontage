@@ -76,23 +76,15 @@ void mesh_emission(void * arg) {
     uint8_t mesg[FRAME_SIZE];
     read_txbuffer(mesg, (int) arg);
 
-    //ESP_LOGI(MESH_TAG, "Message to mesh = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", mesg[0], mesg[1], mesg[2], mesg[3], mesg[4], mesg[5], mesg[6], mesg[7], mesg[8], mesg[9], mesg[10], mesg[11], mesg[12], mesg[13], mesg[14], mesg[15]);
-
-    //ESP_LOGI(MESH_TAG, "calculating CRC...");
     set_crc(mesg, FRAME_SIZE);
-    //ESP_LOGI(MESH_TAG, "CRC calculated.");
     data.data = mesg;
     data.size = FRAME_SIZE;
-
-    //ESP_LOGI(MESH_TAG, "Message to mesh = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", mesg[0], mesg[1], mesg[2], mesg[3], mesg[4], mesg[5], mesg[6], mesg[7], mesg[8], mesg[9], mesg[10], mesg[11], mesg[12], mesg[13], mesg[14], mesg[15]);
 
     switch(type_mesg(mesg)) {
     case BEACON: //Send a beacon to the root.
         err = esp_mesh_send(NULL, &data, MESH_DATA_P2P, NULL, 0);
 	if (err != 0) {
-	    //perror("Beacon failed");
-	    ESP_LOGE(MESH_TAG, "Couldn't send BEACON to root");
-	    //state = ERROR_S;
+	    ESP_LOGE(MESH_TAG, "Couldn't send BEACON to root - %s", esp_err_to_name(err));
 	}
 	break;
     case COLOR_E: //Send a Color frame (one triplet) to a specific card. The mac is in the frame.
@@ -101,45 +93,36 @@ void mesh_emission(void * arg) {
 	    get_mac(mesg, to.addr);
 	    err = esp_mesh_send(&to, &data, MESH_DATA_P2P, NULL, 0);
 	    if (err != 0) {
-		//perror("Color fail");
-		ESP_LOGE(MESH_TAG, "Couldn't send COLOR to "MACSTR"", MAC2STR(to.addr));
-		//state = ERROR_S;
+		ESP_LOGE(MESH_TAG, "Couldn't send COLOR to "MACSTR" - %s", MAC2STR(to.addr), esp_err_to_name(err));
 	    }
 	}
 	break;
-    case B_ACK: // Send a beacon acknowledgement to a specific card. The mac is in the frame.
+    case B_ACK: 
 	{
+	    ESP_LOGI(MESH_TAG, "Sending B_ACK");
 	    mesh_addr_t to;
 	    get_mac(mesg, to.addr);
 	    err = esp_mesh_send(&to, &data, MESH_DATA_P2P, NULL, 0);
 	    if (err != 0) {
-		//perror("B_ACK fail");
 		ESP_LOGE(MESH_TAG, "Couldn't send B_ACK to "MACSTR" - %s", MAC2STR(to.addr), esp_err_to_name(err));
 	    }
 	}
 	break;
-	/*case SLEEP_R : // Put all cards in the mesh in sleep mode. To do this, the messages are sent to the cards with the less cards in their subnet, and then to those with greater subnet, to ensure that there is always a card to relay the messages
-        data.data[TYPE] = SLEEP;
-        for (int i = 0; i < route_table_size; i++) {
-	    esp_mesh_get_subnet_nodes_num(&route_table[i].card, &num[i]);
-	}
-	int count = 0;
-	while (count < route_table_size) {
-	    for (int i = 0; i < route_table_size; i++) {
-		if (num[i] == count) {
-		    esp_mesh_send(&route_table[i].card, &data, MESH_DATA_P2P, NULL, 0);
-		}
+    case ERROR :
+	if (mesg[DATA] == ERROR_DECO) {
+	    ESP_LOGI(MESH_TAG, "error relay worked");
+	    err = esp_mesh_send(NULL, &data, MESH_DATA_P2P, NULL, 0);
+	    if (err != 0) {
+		ESP_LOGE(MESH_TAG, "Couldn't send ERROR to root - %s", esp_err_to_name(err));
 	    }
-	    count++;
 	}
-	break;*/
+	break;
     default : //Broadcast the message to all the mesh. This include AMA, SLEEP and INSTALL frames.
 	for (int i = 0; i < route_table_size; i++) {
-	    if (!same_mac(route_table[i].card.addr, my_mac)) {
+	    if (!same_mac(route_table[i].card.addr, my_mac) && route_table[i].state) {
 		err = esp_mesh_send(&route_table[i].card, &data, MESH_DATA_P2P, NULL, 0);
 		if (err != 0) {
-		    //perror("message fail");
-		    ESP_LOGE(MESH_TAG, "Couldn't send message %d to "MACSTR"", type_mesg(mesg), MAC2STR(route_table[i].card.addr));
+		    ESP_LOGE(MESH_TAG, "Couldn't send message %d to "MACSTR" - %s", type_mesg(mesg), MAC2STR(route_table[i].card.addr), esp_err_to_name(err));
 		}
 	    }
 	}

@@ -31,20 +31,19 @@ void get_mac(uint8_t * msg, uint8_t * mac){
     int start = -2;
     switch(type_mesg(msg)){
     case BEACON :
-    case B_ACK:
-    case INSTALL :
+    case INSTALL:
 	start = DATA;
+	break;
+    case B_ACK :
+	start = DATA + 1;
 	break;
     case COLOR_E:
 	start = DATA + 5;
 	break;
     case COLOR:
     case AMA :
-    case SLEEP:
-	start = -1;
-	break;
     case ERROR:
-	start = DATA;
+	start = DATA+2;
 	break;
     default: //all unknown messages are ignored
 	start = -2;
@@ -54,7 +53,7 @@ void get_mac(uint8_t * msg, uint8_t * mac){
 	return ;
     }
     if (start == -2) {
-	//ESP_LOGE(MESH_TAG, "unknown msg type");
+	ESP_LOGE(MESH_TAG, "unknown msg type");
     }
 }
 
@@ -74,7 +73,11 @@ int same_mac(uint8_t * mac1, uint8_t * mac2) {
  */
 int get_size(uint8_t type) {
     if (type == COLOR) {
-	return 3 * route_table_size + 5;
+	int len = 3 * route_table_size + 4 + (3 * route_table_size + 4)/7;
+	if ((3 * route_table_size + 4) % 7 ==0) {
+	    return len;
+	}
+	return len + 1;
     } else {
 	return FRAME_SIZE;
     }

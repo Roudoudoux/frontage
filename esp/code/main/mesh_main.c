@@ -12,6 +12,9 @@
 #include "state_machine.h"
 #include "thread.h"
 
+#include "driver/gpio.h"
+
+#define BLINK_GPIO 2
 
 
 /*******************************************************
@@ -29,6 +32,8 @@ uint8_t my_mac[6] = {0};
 unsigned int state = INIT;
 bool is_asleep = false;
 uint16_t current_sequence = 0;
+uint8_t buf_err[FRAME_SIZE] = {0};
+int err_addr_req = 0;
 
 /*Variable du socket */
 struct sockaddr_in tcpServerAddr;
@@ -63,7 +68,7 @@ void add_route_table(uint8_t * mac, int pos){
     } else {
 	int i = 0;
 	while (! same_mac(mac, route_table[i].card.addr) && i < route_table_size) {
-    i++;
+	    i++;
 	} if (i == route_table_size) { // Remplacement sans substitution
 	    ESP_LOGW(MESH_TAG, "MAC not in route_table, replaced old MAC value by new");
 	    copy_mac(mac, route_table[pos].card.addr);
@@ -76,6 +81,31 @@ void add_route_table(uint8_t * mac, int pos){
     for (int j = 0; j < route_table_size; j++) {
 	ESP_LOGW(MESH_TAG, "Addr %d : "MACSTR"", j, MAC2STR(route_table[j].card.addr));
     }
+}
+
+void disable_node(uint8_t *mac) {
+    int i = 0;
+    while (! same_mac(mac, route_table[i].card.addr) && i < route_table_size) {
+	i++;
+    }
+    if (i == route_table_size) {
+	ESP_LOGE(MESH_TAG, "Request for disabling MAC not in routing table.");
+	return;
+    }
+    route_table[i].state = false;
+}
+
+void enable_node(uint8_t *mac) {
+    int i = 0;
+    while (! same_mac(mac, route_table[i].card.addr) && i < route_table_size) {
+	i++;
+    }
+    if (i == route_table_size) {
+	ESP_LOGE(MESH_TAG, "Request for disabling MAC not in routing table.");
+	return;
+    }
+    route_table[i].state = true;
+    ESP_LOGI(MESH_TAG, ""MACSTR" : %d", MAC2STR(route_table[i].card.addr), route_table[i].state);
 }
 
 /**
@@ -93,49 +123,11 @@ void connect_to_server() {
 	perror("Erreur socket : ");
 	ESP_LOGE(MESH_TAG, "Connection fail");
 	close(sock_fd);
+	vTaskDelay(5000 / portTICK_PERIOD_MS); //Stop for 5s after each try
     }else {
 	ESP_LOGW(MESH_TAG, "Connected to Server");
 	xTaskCreate(server_reception, "SERRX", 6000, NULL, 5, NULL);
 	is_server_connected = true;
-    }
-}
-
-void reset_and_connect_server() {
-    
-    while(!is_server_connected) {
-	sock_fd = socket(AF_INET, SOCK_STREAM, 0); // Ouverture du socket avec le serveur.
-	if (sock_fd == -1) {
-	    ESP_LOGE(MESH_TAG, "Socket_fail");
-	    continue;
-	}
-	int ret = connect(sock_fd, (struct sockaddr *)&tcpServerReset, sizeof(struct sockaddr));
-	if (ret < 0) {
-	    perror("Erreur socket : ");
-	    ESP_LOGE(MESH_TAG, "Connection fail to reset Port");
-	    close(sock_fd);
-	    continue;
-	} else {
-	    close(sock_fd);
-	    ESP_LOGI(MESH_TAG, "Send server reset request");
-	    while (!is_server_connected) {
-		sock_fd = socket(AF_INET, SOCK_STREAM, 0); // Ouverture du socket avec le serveur.
-		if (sock_fd == -1) {
-		    ESP_LOGE(MESH_TAG, "Socket_fail");
-		    continue;
-		}
-		ret = connect(sock_fd, (struct sockaddr *)&tcpServerAddr, sizeof(struct sockaddr));
-		if (ret < 0 && errno != 119) {
-		    perror("Erreur socket : ");
-		    ESP_LOGE(MESH_TAG, "Connection fail to com Port");
-		    close(sock_fd);
-		    continue;
-		}else {
-		    ESP_LOGW(MESH_TAG, "Connected to Server");
-		    xTaskCreate(server_reception, "SERRX", 6000, NULL, 5, NULL);
-		    is_server_connected = true;
-		}
-	    }
-	}
     }
 }
 
@@ -145,13 +137,11 @@ void reset_and_connect_server() {
  */
 void esp_mesh_state_machine(void * arg) {
     is_running = true;
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
 
     while(is_running) {;
 	switch(state) {
 	case INIT:
 	    state_init();
-	    vTaskDelay(5000 / portTICK_PERIOD_MS);
 	    break;
 	case CONF :
 	    state_conf();
@@ -167,18 +157,55 @@ void esp_mesh_state_machine(void * arg) {
 	    break;
 	case ERROR_S :
 	    state_error();
-	    break;
-	case SLEEP_S :
-	    state_sleep();
-	    if (is_asleep) {
-		vTaskDelay((TIME_SLEEP * 1000) / portTICK_PERIOD_MS);//Sleep induce delay of 5 s for everything
-	    }
+	    vTaskDelay(10 / portTICK_PERIOD_MS);
 	    break;
 	default :
 	    ESP_LOGE(MESH_TAG, "ESP entered unknown state %d", state);
 	}
     }
     vTaskDelete(NULL);
+}
+
+/**
+ *@brief Makes the Builtin blue led blink as many times as the layer number
+ */
+void blink_task(void *pvParameter)
+{
+    gpio_pad_select_gpio(BLINK_GPIO);
+	/* Set the GPIO as a push/pull output */
+    gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
+	/* Blink off (output low) */
+    while(1) {
+	for (int i = 0; i < esp_mesh_get_layer(); i++) {
+	    gpio_set_level(BLINK_GPIO, 1);
+	    vTaskDelay(200 / portTICK_PERIOD_MS);
+	    /* Blink on (output high) */
+	    gpio_set_level(BLINK_GPIO, 0);
+	    vTaskDelay(200 / portTICK_PERIOD_MS);
+	}
+	vTaskDelay(2000 / portTICK_PERIOD_MS);
+	if (mesh_parent_addr.addr[5] == 0) {
+	    continue;
+	}
+	int first_half = mesh_parent_addr.addr[5] / 16;
+	int last_half = mesh_parent_addr.addr[5] % 16;
+	for (int i = 0; i < first_half; i++) {
+	    gpio_set_level(BLINK_GPIO, 1);
+	    vTaskDelay(200 / portTICK_PERIOD_MS);
+	    /* Blink on (output high) */
+	    gpio_set_level(BLINK_GPIO, 0);
+	    vTaskDelay(200 / portTICK_PERIOD_MS);
+	}
+	vTaskDelay(2000 / portTICK_PERIOD_MS);
+	for (int i = 0; i < last_half-1; i++) {
+	    gpio_set_level(BLINK_GPIO, 1);
+	    vTaskDelay(200 / portTICK_PERIOD_MS);
+	    /* Blink on (output high) */
+	    gpio_set_level(BLINK_GPIO, 0);
+	    vTaskDelay(200 / portTICK_PERIOD_MS);
+	}
+	vTaskDelay(5000 / portTICK_PERIOD_MS);
+    }
 }
 
 /**
@@ -191,8 +218,21 @@ esp_err_t esp_mesh_comm_p2p_start(void)
         is_comm_p2p_started = true;
 	xTaskCreate(mesh_reception, "ESPRX", 3072, NULL, 5, NULL);
 	xTaskCreate(esp_mesh_state_machine, "STMC", 3072, NULL, 5, NULL);
+	xTaskCreate(blink_task, "blink_task", 3072, NULL, 5, NULL);
     }
     return ESP_OK;
+}
+
+void error_child_disconnected(uint8_t *mac) {
+    ESP_LOGE(MESH_TAG, "Sent frame for Child Disconnection");
+    uint8_t buf_send[FRAME_SIZE];
+    buf_send[VERSION] = SOFT_VERSION;
+    buf_send[TYPE] = ERROR;
+    buf_send[DATA] = ERROR_DECO;
+    buf_send[DATA+1] = 0;
+    copy_buffer(buf_send + DATA + 2, mac, 6);
+    int head = write_txbuffer(buf_send, FRAME_SIZE);
+    xTaskCreate(mesh_emission, "ESPTX", 3072, (void *) head, 5, NULL);
 }
 
 /**
@@ -222,6 +262,7 @@ void mesh_event_handler(mesh_event_t event)
                  MAC2STR(event.info.child_connected.mac));
         break;
     case MESH_EVENT_CHILD_DISCONNECTED:
+	error_child_disconnected(event.info.child_disconnected.mac);
         ESP_LOGI(MESH_TAG, "<MESH_EVENT_CHILD_DISCONNECTED>aid:%d, "MACSTR"",
                  event.info.child_disconnected.aid,
                  MAC2STR(event.info.child_disconnected.mac));
