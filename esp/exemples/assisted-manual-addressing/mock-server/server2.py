@@ -21,9 +21,13 @@ BEACON = 1
 INSTALL = 3
 COLOR = 4
 AMA = 6
+ERROR = 7
 SLEEP = 8
 AMA_INIT = 61
 AMA_COLOR = 62
+ERROR_CO = 71
+ERROR_DECO = 72
+ERROR_GOTO = 73
 SLEEP_SERVER = 81
 SLEEP_MESH = 82
 SLEEP_WAKEUP = 89
@@ -90,6 +94,60 @@ def msg_color(colors, ama= -1, col= None):
     crc_get(array)
     return array
 
+class Listen(Thread) :
+
+    def __init__(self, com) :
+        print("Listen init")
+        Thread.__init__(self)
+        self.com = com
+        self.deco = []
+        self.unk = []
+        self.allowed = False
+
+    def run(self) :
+        print("Listen start")
+        while True:
+            if self.allowed :
+                self.listen()
+
+    def listen(self) :
+        print("Listening...")
+        data = ""
+        try :
+            data = self.com.conn.recv(1500)
+        except :
+            pass
+        if (data != "" and crc_check(data[0:16])) :
+            if (data[TYPE] == ERROR) :
+                array = bytearray(16)
+                array[VERSION] = SOFT_VERSION
+                array[TYPE] = ERROR
+                array[DATA] = data[DATA]
+                array[DATA+1] = data[DATA+1]
+                for j in range (DATA+2, DATA+8) :
+                    array[j] = data[j]
+                #Setting flags...
+                if data[DATA] == ERROR_DECO :
+                    self.deco.append(data[DATA+2:DATA+8])
+                    print(self.deco)
+                elif data[DATA] == ERROR_CO :
+                    print("known address : %s" % ('y' if data[DATA+2:DATA+8] in self.deco else 'n') )
+                    if data[DATA+2:DATA+8] not in self.deco : # Raising UNK flag
+                        self.unk.append(data[DATA+2:DATA+8])
+                        array[DATA+1] = array[DATA+1] | 32
+                    else :
+                        self.deco.remove(data[DATA+2:DATA+8])
+                else :
+                    print("WTF????")
+                print("Received message, acquitting it", data)
+                print(self.deco, self.unk)
+                array[DATA+1] = array[DATA+1] | 128
+                crc_get(array)
+                print(array)
+                self.com.conn.send(array)
+                print("acquitted")
+            else :
+                print("received unintersting message...")
 
 class Main_communication(Thread) :
     addressed = False
@@ -105,6 +163,8 @@ class Main_communication(Thread) :
         self.conn = conn
         self.addr = addr
         self.stopped = False
+        self.l = Listen(self)
+        self.l.start()
 
     def run(self) :
         self.state_machine()
@@ -116,6 +176,7 @@ class Main_communication(Thread) :
             self.get_macs()
             self.state_ama()
             Main_communication.addressed = True
+            self.l.allowed = True
         else :
             self.send_table()
         while True :
@@ -223,7 +284,7 @@ class Main_communication(Thread) :
         while (turn < 4):
             array = msg_color(sequence[i])
             self.conn.send(array)
-            time.sleep(0.1)
+            time.sleep(1)
             i = (i+1) % 4
             turn += 1
 

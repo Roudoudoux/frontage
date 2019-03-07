@@ -32,14 +32,11 @@ def crc_get(frame):
         crc_size += 1
     offset = 0
     fsc = size - crc_size
-    print("Start :", frame)
     while (crc_size > 0):
         frame[size-crc_size] = crc_compute(frame[offset:fsc])
-        print(frame[size-crc_size])
         #fsc -= CRC_p
         crc_size-=1
         offset += CRC_p
-    print("Finish :", frame)
 
 def crc_check(frame) :
     global CRC_p
@@ -49,13 +46,8 @@ def crc_check(frame) :
         crc_size += 1
     offset = 0
     fsc = size - crc_size
-    print(frame)
-    print(frame[size-crc_size], crc_compute(frame[offset:fsc]))
     while (crc_size > 0 and frame[size-crc_size] == crc_compute(frame[offset:fsc])):
         #fsc -= CRC_p
         crc_size-=1
         offset += CRC_p
-        if (crc_size != 0) :
-            print(frame[size-crc_size], crc_compute(frame[offset:fsc]))
-    print(crc_size)
     return(crc_size == 0)
