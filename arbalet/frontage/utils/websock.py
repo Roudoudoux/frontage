@@ -7,6 +7,7 @@ from threading import Thread
 from server.flaskutils import print_flush
 
 KEY_WS_SEND = "KEY_WS_SEND"
+KEY_WS_SEND_MAC = "KEY_WS_SEND_MAC"
 
 
 class Websock(Thread):
@@ -28,6 +29,14 @@ class Websock(Thread):
                                            'userid': userid}))
 
     @staticmethod
+    def send_mac(address):
+        print_flush("###############################################################################")
+        print_flush("Send : [address=" + address + "]")
+        print_flush("###############################################################################")
+        redis.set(KEY_WS_SEND_MAC, json.dumps({'address': address}))
+
+
+    @staticmethod
     def get_data():
         data = redis_get(KEY_WS_SEND, None)
         if data:
@@ -35,6 +44,16 @@ class Websock(Thread):
         if data == 'None':
             return None
         return data
+
+    @staticmethod
+    def get_mac():
+        data = redis_get(KEY_WS_SEND_MAC, None)
+        if data:
+            redis.set(KEY_WS_SEND_MAC, None)
+        if data == 'None':
+            return None
+        return data
+
 
     async def consumer_handler(self, websocket, path): # noqa
         while True:
