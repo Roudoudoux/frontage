@@ -17,7 +17,7 @@ class Frontage(Thread):
     RATE_HZ = 30
     FADE_OUT_NUM_FRAMES = 20
 
-    def __init__(self, height=4, width=19):
+    def __init__(self, height=SchedulerState.get_rows(), width=SchedulerState.get_cols()):
         Thread.__init__(self)
         self.setDaemon(True)
         self.model = Model(height, width)
@@ -76,7 +76,7 @@ class Frontage(Thread):
             if self.frontage_running:
                 self.channel_pixels.basic_publish(exchange='pixels', routing_key='', body=self.model.json())
                 self.rate.sleep()
-        
+
         # Closing
         if self.channel is not None:
             self.channel.close()
