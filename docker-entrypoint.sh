@@ -27,6 +27,11 @@ case "$1" in
         /wait-for-it.sh rabbit:5672
         celery -A tasks worker --concurrency=1 -Q userapp --loglevel=INFO
         ;;
+    mesh)
+        cd /usr/src/app/
+        /wait-for-it.sh rabbit:5672
+        /usr/local/bin/python mesh.py
+        ;;
     reset)
         cd /usr/src/app/
         flask drop_all

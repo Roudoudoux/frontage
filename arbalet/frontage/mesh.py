@@ -1,24 +1,24 @@
-from server.flaskutils import print_flush
-
-print_flush("ola")
 import socket
 import select
 import sys
 import os, fcntl
 import time
 import pika
+import json
 from threading import Thread, Lock
 from math import ceil
-from utils.crc import *
+from utils.crc import crc_get, crc_check
 from utils.websock import Websock
+from model import Model
+from scheduler_state import SchedulerState
 #import goto
 
-# CONSTANTS
+# CONSTANTS 
 
 # Connection
 HOST='10.42.0.1'
 #HOST='10.0.0.1'
-PORT=8080
+PORT=9988
 SOFT_VERSION = 1
 
 #Frame's type
@@ -43,6 +43,12 @@ VERSION = 0
 TYPE = 1
 DATA = 2
 FRAME_SIZE = 16
+
+# state
+
+STATE_CONF = 2
+
+
 
 def msg_install(data, comp):
     array = bytearray(16)
@@ -72,12 +78,13 @@ def msg_ama(amatype):
     crc_get(array)
     return array
 
-def msg_readressage():
+def msg_readressage():#Check why no mac
     array = bytearray(16)
     array[VERSION] = SOFT_VERSION
     array[TYPE] = ERROR
     array[DATA] = ERROR_GOTO
     array[DATA+1] = STATE_CONF
+    return array
 
 def msg_color(colors, ama= False):
     #print(colors)
@@ -175,6 +182,7 @@ class Listen(Thread) :
 
 class Mesh(Thread):
     addressed = False
+    ama = 0
     rows = 0
     cols = 0
     comp = 0
@@ -188,17 +196,17 @@ class Mesh(Thread):
         self.mesh_addr = addr
         self.ama_check = False
         self.comp = 0
-        self.model = Model(get_rows(), get_cols())
+        self.model = Model(SchedulerState.get_rows(), SchedulerState.get_cols())
         self.stopped = False
         self.l = Listen(self)
         self.l.start()
         #Communication with RabbitMQ config
         self.channel = None
         self.connection = None
-        credentials = pika.PlainCredentials(environ['RABBITMQ_DEFAULT_USER'], environ['RABBITMQ_DEFAULT_PASS'])
+        credentials = pika.PlainCredentials(os.environ['RABBITMQ_DEFAULT_USER'], os.environ['RABBITMQ_DEFAULT_PASS'])
         self.params = pika.ConnectionParameters(host='localhost', credentials=credentials, connection_attempts = 100, heartbeat = 0)
 
-    def negative_model() :
+    def negative_model(self) :
         i = 0
         while(i < self.model.get_height()) :
             j = 0
@@ -209,7 +217,7 @@ class Mesh(Thread):
             i += 1
         return True
 
-    def ama_care(dif):
+    def ama_care(self, dif):
         Mesh.pixels = json.loads(Websock.get_pixels())
         Listen.unk = json.loads(Websock.get_pos_unk())
         array = msg_color(self.model._model, self.ama_check)
@@ -222,22 +230,22 @@ class Mesh(Thread):
         prev = self.model.copy()
         curr = self.model.set_from_json(body.decode('ascii'))
         if self.negative_model() :
-            self.ama += 1
-            if self.ama == 1 :
-                Mesh.rows = get_rows();
-                Mesh.cols = get_cols();
+            Mesh.ama += 1
+            if Mesh.ama == 1 :
+                Mesh.rows = SchedulerState.get_rows()
+                Mesh.cols = SchedulerState.get_cols()
                 array = msg_ama(AMA_INIT)
                 self.mesh_conn.send(array)
-            elif self.ama == 2 :
+            elif Mesh.ama == 2 :
                 Mesh.addressed = True
                 array = msg_ama(AMA_COLOR)
                 self.mesh_conn.send(array)
             else :
-                self.ama = 1
+                Mesh.ama = 1
                 Websock.send_pos_unk(Listen.unk)
                 array = msg_readressage()
                 self.mesh_conn.send(array)
-        elif (ama == 1) :
+        elif (Mesh.ama == 1) :
             dif = prev.model.__eq__(curr)
             self.ama_care(dif)
         else :
@@ -245,32 +253,33 @@ class Mesh(Thread):
             self.mesh_conn.send(array)
 
     def send_table(self):
+        pass
         #TODO
 
     def get_mac(self) :
         data = "a"
         while (self.comp != 4):#HARDCODE
-        try :
-            data = self.conn.recv(1500)
-        except :
-            pass
-        if (data != "" and crc_check(data[0:16])) :
-            if data[TYPE] == BEACON :
-                print("BEACON : %d-%d-%d-%d-%d-%d" % (int(data[DATA]), int(data[DATA+1]), int(data[DATA+2]), int(data[DATA+3]), int(data[DATA+4]), int(data[DATA+5])))
-                mac = [int(data[DATA]), int(data[DATA+1]), int(data[DATA+2]), int(data[DATA+3]), int(data[DATA+4]), int(data[DATA+5])]
-                if Mesh.pixels[mac] :
-                    print("already got this")
-                    continue
-                Mesh.pixels[data[DATA:DATA+6]]=((-1,-1), self.comp)
-                Websock.send_pos_unk(Mesh.pixels)
-                array = msg_install(data, self.comp)
-                self.comp += 1
-                self.conn.send(array)
-                #time.sleep(1)
+            try :
+                data = self.conn.recv(1500)
+            except :
+                pass
+            if (data != "" and crc_check(data[0:16])) :
+                if data[TYPE] == BEACON :
+                    print("BEACON : %d-%d-%d-%d-%d-%d" % (int(data[DATA]), int(data[DATA+1]), int(data[DATA+2]), int(data[DATA+3]), int(data[DATA+4]), int(data[DATA+5])))
+                    mac = [int(data[DATA]), int(data[DATA+1]), int(data[DATA+2]), int(data[DATA+3]), int(data[DATA+4]), int(data[DATA+5])]
+                    if Mesh.pixels[mac] :
+                        print("already got this")
+                        continue
+                    Mesh.pixels[data[DATA:DATA+6]]=((-1,-1), self.comp)
+                    Websock.send_pos_unk(Mesh.pixels)
+                    array = msg_install(data, self.comp)
+                    self.comp += 1
+                    self.mesh_conn.send(array)
+                    #time.sleep(1)
+                else :
+                    print("A message was recieved but it is not a BEACON")
             else :
-                print("A message was recieved but it is not a BEACON")
-        else :
-            print("Empty message or invalid CRC")
+                print("Empty message or invalid CRC")
 
     def run(self):
         try:
@@ -288,7 +297,6 @@ class Mesh(Thread):
             print('Waiting for pixel data on queue "{}".'.format(queue_name))
             self.channel.start_consuming()
         except Exception as e:
-            self.close_dmx()
             if self.channel is not None:
                 self.channel.close()
             if self.connection is not None:
@@ -297,7 +305,7 @@ class Mesh(Thread):
 
     def close_socket(self) :
         print("exiting thread, closing connection")
-        self.conn.close()
+        self.mesh_conn.close()
         print("Closed connection, exiting thread...")
         self.stopped = True
 
@@ -309,9 +317,8 @@ def main() : #Kinda main-like. You can still put executable code between functio
                 Mesh.socket.bind((HOST, PORT))
                 Mesh.socket.listen(5)
             except socket.error as msg:
+                print("Socket has failed :",msg)
                 continue
-                print("Binding has failed\n Err code :" + str(msg[0]) + "\n msg : " + msg[1])
-                sys.exit()
             break
         socket_thread = None
         print("Socket opened, waiting for connection...")
@@ -321,9 +328,10 @@ def main() : #Kinda main-like. You can still put executable code between functio
             if (socket_thread != None) :
                 socket_thread.close_socket()
             socket_thread = Mesh(conn, addr)
-            if (!Mesh.addressed):
+            if (not Mesh.addressed):
                 socket_thread.get_mac() # Ajouter un envoie de trmae vide lorsque la route à finie de remplir l=sa table de routage logique
             socket_thread.run()
 
 if __name__ == '__main__' :
+    print("Yo")
     main()

@@ -1,5 +1,17 @@
 version: '2'
 services:
+  mesh:
+    image : "mesh"
+    volumes:
+      - /arbalet/frontage:/usr/src/app
+    restart: unless-stopped
+    env_file: .env-dev
+    ports:
+      - 9988:9988
+    command: ["mesh"]
+    links:
+      - redis:redis
+      - rabbit:rabbit  
   redis:
     image: "redis"
     volumes:
