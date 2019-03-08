@@ -22,9 +22,6 @@ from scheduler_state import SchedulerState
 from random import randrange as rand
 from time import sleep
 
-# The configuration
-cols =        SchedulerState.get_cols()
-rows =        SchedulerState.get_rows()
 
 # Define the shapes of the single parts
 tetris_shapes = [
@@ -89,11 +86,16 @@ class Tetris(Fap):
     ACTIVATED = True
     PARAMS_LIST = {}
 
+    cols = 0
+    rows = 0
+
     def __init__(self, username, userid):
         super(Tetris, self).__init__(username, userid)
         self.PARAMS_LIST = {'speed': 0.15}
         self.colors = ['black', 'deeppink', 'green', 'darkred', 'orangered', 'darkblue', 'cyan', 'yellow']
         self.next_stone = tetris_shapes[rand(len(tetris_shapes))]
+        Tetris.cols = SchedulerState.get_cols()
+        Tetris.rows = SchedulerState.get_rows()
         self.init_game()
 
     def new_stone(self):

@@ -2,6 +2,7 @@ from __future__ import absolute_import
 
 from server.extensions import celery
 from server.app import create_app
+from flaskutils import print_flush
 
 app = celery
 app.init_app(create_app())

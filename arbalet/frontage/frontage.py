@@ -17,9 +17,10 @@ class Frontage(Thread):
     RATE_HZ = 30
     FADE_OUT_NUM_FRAMES = 20
 
-    def __init__(self, height=SchedulerState.get_rows(), width=SchedulerState.get_cols()):
+    def __init__(self, height=4, width=19):
         Thread.__init__(self)
         self.setDaemon(True)
+        DimensionsModel()
         self.model = Model(height, width)
         self.rate = Rate(self.RATE_HZ)
         self.frontage_running = False
