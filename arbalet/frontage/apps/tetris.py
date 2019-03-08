@@ -77,7 +77,7 @@ def join_matrixes(mat1, mat2, mat2_off):
 
 
 def new_board():
-    board = [[0 for x in range(cols)] for y in range(rows)]
+    board = [[0 for x in range(Tetris.cols)] for y in range(Tetris.rows)]
     return board
 
 
