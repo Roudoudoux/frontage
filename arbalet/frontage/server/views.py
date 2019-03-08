@@ -350,6 +350,7 @@ def set_building_dimensions(user):
 
 @blueprint.route('/b/admin/settings/mesh/pixel/set', methods=['POST'])
 @authentication_required
+#TODO : call Fapp AMA
 def set_pixel_position(user):
     if not is_admin(user):
         abort(403, "Forbidden Bru")

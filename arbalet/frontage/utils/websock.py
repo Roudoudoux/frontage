@@ -8,7 +8,8 @@ from server.flaskutils import print_flush
 
 KEY_WS_SEND = "KEY_WS_SEND"
 KEY_WS_SEND_MAC = "KEY_WS_SEND_MAC"
-
+POS_UNK = "POS_UNK"
+PIXELS = "PIXELS"
 
 class Websock(Thread):
     def __init__(self, fap, host='0.0.0.0', port=9988):
@@ -29,11 +30,18 @@ class Websock(Thread):
                                            'userid': userid}))
 
     @staticmethod
-    def send_mac(address):
+    def send_pos_unk(pos_unknown):
         print_flush("###############################################################################")
-        print_flush("Send : [address=" + address + "]")
+        print_flush("Send : [pos_unknown={0}]".format(pos_unknown))
         print_flush("###############################################################################")
-        redis.set(KEY_WS_SEND_MAC, json.dumps({'address': address}))
+        redis.set(POS_UNK, json.dumps(pos_unknown))
+
+    @staticmethod
+    def send_pixels(pixels):
+        print_flush("###############################################################################")
+        print_flush("Send : [pixels={0}]".format(pixels))
+        print_flush("###############################################################################")
+        redis.set(PIXELS, json.dumps(pixels))
 
 
     @staticmethod
@@ -46,10 +54,19 @@ class Websock(Thread):
         return data
 
     @staticmethod
-    def get_mac():
-        data = redis_get(KEY_WS_SEND_MAC, None)
+    def get_pos_unk():
+        data = redis_get(POS_UNK, None)
         if data:
-            redis.set(KEY_WS_SEND_MAC, None)
+            redis.set(POS_UNK, None)
+        if data == 'None':
+            return None
+        return data
+
+    @staticmethod
+    def get_pixels():
+        data = redis_get(PIXELS, None)
+        if data:
+            redis.set(PIXELS, None)
         if data == 'None':
             return None
         return data
