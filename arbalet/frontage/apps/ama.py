@@ -104,7 +104,7 @@ class Ama(Fap) :
                     while self.action == 0 : #wait for the confirmation of the administrator
                         continue
                     if action == 1 : #administrator ensures the rightfullness of the coordonate
-                        self.update(mac, self.coord, ind) #I think we should wait for the end to do that
+                        self.update(mac, self.coord, ind)
                     else : # the pixel is reput in the pos_unknown dictionary as its position is false
                         self.pos_unknown[mac] = ((x,y), ind)
                 #Start the up right verification
