@@ -65,7 +65,7 @@ def check_collision(board, shape, offset):
 
 def remove_row(board, row):
     del board[row]
-    return [[0 for i in range(cols)]] + board
+    return [[0 for i in range(Tetris.cols)]] + board
 
 
 def join_matrixes(mat1, mat2, mat2_off):
@@ -101,7 +101,7 @@ class Tetris(Fap):
     def new_stone(self):
         self.stone = self.next_stone[:]
         self.next_stone = tetris_shapes[rand(len(tetris_shapes))]
-        self.stone_x = int(cols / 2 - len(self.stone[0])/2)
+        self.stone_x = int(Tetris.cols / 2 - len(self.stone[0])/2)
         self.stone_y = 0
 
         if check_collision(self.board, self.stone, (self.stone_x, self.stone_y)):
@@ -132,8 +132,8 @@ class Tetris(Fap):
             new_x = self.stone_x + delta_x
             if new_x < 0:
                 new_x = 0
-            if new_x > cols - len(self.stone[0]):
-                new_x = cols - len(self.stone[0])
+            if new_x > Tetris.cols - len(self.stone[0]):
+                new_x = Tetris.cols - len(self.stone[0])
             if not check_collision(self.board,
                                    self.stone,
                                    (new_x, self.stone_y)):
