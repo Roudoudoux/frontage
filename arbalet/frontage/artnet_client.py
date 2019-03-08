@@ -4,13 +4,14 @@ from os import environ
 from model import Model
 from numpy import array
 from artnet import dmx
+from scheduler_state import SchedulerState
 
 
 __all__ = ['ArtnetClient']
 
 
 class ArtnetClient(object):
-    def __init__(self, col=19, row=4):
+    def __init__(self, col=SchedulerState.get_cols(), row=SchedulerState.get_rows()):
         self.model = Model(row, col)
 
          # row, column -> (DMX universe, DMX address)
@@ -218,4 +219,3 @@ if __name__ == '__main__':
     logger = logging.getLogger("artnet.dmx")
     logger.setLevel(logging.ERROR)
     artnet.run()
-

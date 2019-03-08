@@ -17,13 +17,14 @@ import time
 from apps.fap import Fap
 from apps.actions import Actions
 from utils.colors import name_to_rgb
+from scheduler_state import SchedulerState
 
 from random import randrange as rand
 from time import sleep
 
 # The configuration
-cols =        4
-rows =        19
+cols =        SchedulerState.get_cols()
+rows =        SchedulerState.get_rows()
 
 # Define the shapes of the single parts
 tetris_shapes = [
@@ -220,4 +221,3 @@ class Tetris(Fap):
         self.flash()
         time.sleep(1)
         # self.send_close_app()
-

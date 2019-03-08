@@ -3,6 +3,7 @@ import datetime
 # from server.extensions import db
 from uuid import uuid4
 from db.base import Base
+from scheduler_state import SchedulerState
 from sqlalchemy import table, Column, Integer, String, DateTime, Boolean
 
 def cln_str(s):
@@ -27,8 +28,8 @@ class DimensionsModel(Base):
 
     def __init__(self):
         self.uniqid = str(uuid4())
-        self.rows = 4
-        self.cols = 19
+        self.rows = SchedulerState.get_rows()
+        self.cols = SchedulerState.get_cols()
 
     def __repr__(self):
         return '<dimensionsmodel %r (%r) (%r)>' % (
