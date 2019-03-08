@@ -101,7 +101,7 @@ class Tetris(Fap):
     def new_stone(self):
         self.stone = self.next_stone[:]
         self.next_stone = tetris_shapes[rand(len(tetris_shapes))]
-        self.stone_x = int(cols / 2 - len(self.stone[0])/2)
+        self.stone_x = int(Tetris.cols / 2 - len(self.stone[0])/2)
         self.stone_y = 0
 
         if check_collision(self.board, self.stone, (self.stone_x, self.stone_y)):

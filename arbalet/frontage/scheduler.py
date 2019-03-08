@@ -12,6 +12,7 @@ from scheduler_state import SchedulerState
 
 from apps.fap import Fap
 from db.base import Base
+from db.models import DimensionsModel
 from utils.sentry_client import SENTRY
 from server.flaskutils import print_flush
 from utils.websock import Websock
