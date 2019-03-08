@@ -11,7 +11,7 @@ __all__ = ['ArtnetClient']
 
 
 class ArtnetClient(object):
-    def __init__(self, col=SchedulerState.get_cols(), row=SchedulerState.get_rows()):
+    def __init__(self, col=19, row=4):
         self.model = Model(row, col)
 
          # row, column -> (DMX universe, DMX address)

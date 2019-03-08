@@ -3,7 +3,6 @@ import datetime
 # from server.extensions import db
 from uuid import uuid4
 from db.base import Base
-from scheduler_state import SchedulerState
 from sqlalchemy import table, Column, Integer, String, DateTime, Boolean
 
 def cln_str(s):
@@ -28,8 +27,8 @@ class DimensionsModel(Base):
 
     def __init__(self):
         self.uniqid = str(uuid4())
-        self.rows = SchedulerState.get_rows()
-        self.cols = SchedulerState.get_cols()
+        self.rows = 4
+        self.cols = 19
 
     def __repr__(self):
         return '<dimensionsmodel %r (%r) (%r)>' % (
@@ -42,16 +41,18 @@ class CellTableModel(Base):
     X = Column(Integer)
     Y = Column(Integer)
     MacAddress = Column(String(60))
+    Ind = Column(Integer)
 
-    def __init__(self, x, y, macAddress):
+    def __init__(self, x, y, macAddress, ind = 0):
         self.uniqid = str(uuid4())
         self.X = x
         self.Y = y
         self.MacAddress = macAddress
+        self.Ind = ind
 
     def __repr__(self):
-        return '<celltablemodel %r (%r) (%r) (%r)>' % (
-            self.uniqid, self.X, self.Y, self.MacAddress)
+        return '<celltablemodel %r (%r) (%r) (%r) (%r)>' % (
+            self.uniqid, self.X, self.Y, self.MacAddress, self.Ind)
 
 class FappModel(Base):
     __tablename__ = 'fapp'

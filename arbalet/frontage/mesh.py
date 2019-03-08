@@ -6,6 +6,7 @@ import select
 import sys
 import os, fcntl
 import time
+import pika
 from threading import Thread, Lock
 from math import ceil
 from utils.crc import *
@@ -80,7 +81,7 @@ def msg_readressage():
 
 def msg_color(colors, ama= False):
     #print(colors)
-    l = max(len(Mesh.pixels), Mesh.rows*Mesh.cols)
+    l = len(Mesh.pixels) + len(Listen.deco)
     array = bytearray(l*3 + 4 + ceil((l*3 + 4)/7))
     array[VERSION] = SOFT_VERSION
     array[TYPE] = COLOR
@@ -88,7 +89,7 @@ def msg_color(colors, ama= False):
     array[DATA] = Mesh.sequence // 256
     array[DATA+1] = Mesh.sequence % 256
     #print(array[DATA], array[DATA+1], array[DATA]*256 + array[DATA+1])
-    for v in [ val[1] for val in Mesh.pixels.values()]:
+    for v in Mesh.pixels.values():
         ((i,j), ind) = v
         if ( i != -1 and j != -1):
             if (ama ) :
@@ -100,7 +101,7 @@ def msg_color(colors, ama= False):
         array[DATA + 2 + ind*3] = r
         array[DATA + 3 + ind*3] = v
         array[DATA + 4 + ind*3] = b
-    for v in [ val[1] for val in Listen.deco.values()]:
+    for v in Listen.deco.values():
         ((i,j), ind) = v
         if ( i != -1 and j != -1):
             if (ama ) :
@@ -116,12 +117,13 @@ def msg_color(colors, ama= False):
     return array
 
 class Listen(Thread) :
+    deco = {}
     unk = {}
+    
     def __init__(self, com) :
         print("Listen init")
         Thread.__init__(self)
         self.com = com
-        self.deco = {}
         self.allowed = False
 
     def run(self) :
@@ -149,20 +151,20 @@ class Listen(Thread) :
                     array[j] = data[j]
                 #Setting flags...
                 if data[DATA] == ERROR_DECO :
-                    self.deco[data[DATA+2:DATA+8]] = Mesh.pixels.pop(data[DATA+2:DATA+8])
-                    print(self.deco)
+                    Listen.deco[data[DATA+2:DATA+8]] = Mesh.pixels.pop(data[DATA+2:DATA+8])
+                    print(Listen.deco)
                 elif data[DATA] == ERROR_CO :
-                    print("known address : %s" % ('y' if data[DATA+2:DATA+8] in self.deco.keys() else 'n') )
-                    if data[DATA+2:DATA+8] not in self.deco : # Raising UNK flag
-                        self.unk[data[DATA+2:DATA+8]] = ((-1, -1),-1)
+                    print("known address : %s" % ('y' if data[DATA+2:DATA+8] in Listen.deco.keys() else 'n') )
+                    if data[DATA+2:DATA+8] not in Listen.deco : # Raising UNK flag
+                        Listen.unk[data[DATA+2:DATA+8]] = ((-1, -1),-1)
                         Websock.send_pos_unk(Listen.unk)
                         array[DATA+1] = array[DATA+1] | 32
                     else :
-                        Mesh.pixels[data[DATA+2:DATA+8]] = self.deco.pop(data[DATA+2:DATA+8])
+                        Mesh.pixels[data[DATA+2:DATA+8]] = Listen.deco.pop(data[DATA+2:DATA+8])
                 else :
                     print("WTF????")
                 print("Received message, acquitting it", data)
-                print(self.deco, self.unk)
+                print(Listen.deco, Listen.unk)
                 array[DATA+1] = array[DATA+1] | 128
                 crc_get(array)
                 print(array)
@@ -207,18 +209,19 @@ class Mesh(Thread):
             i += 1
         return True
 
-    def ama_care():
+    def ama_care(dif):
         Mesh.pixels = json.loads(Websock.get_pixels())
         Listen.unk = json.loads(Websock.get_pos_unk())
-        array = msg_color(self.model, self.ama_check)
+        array = msg_color(self.model._model, self.ama_check)
         self.mesh_conn.send(array)
-        self.ama_check = !(self.ama_check)
+        if dif :
+            self.ama_check = not self.ama_check
 
     def callback(self, ch, method, properties, body):
         #eviter de le faire dans tous les cas
-        dif = self.model.copy()
-        dif = dif.model.__eq__(self.model.set_from_json(body.decode('ascii')))
-        if (!Mesh.addressed && self.negative_model() :
+        prev = self.model.copy()
+        curr = self.model.set_from_json(body.decode('ascii'))
+        if self.negative_model() :
             self.ama += 1
             if self.ama == 1 :
                 Mesh.rows = get_rows();
@@ -226,17 +229,19 @@ class Mesh(Thread):
                 array = msg_ama(AMA_INIT)
                 self.mesh_conn.send(array)
             elif self.ama == 2 :
+                Mesh.addressed = True
                 array = msg_ama(AMA_COLOR)
                 self.mesh_conn.send(array)
-            else : # on n'y rentre jamais
+            else :
                 self.ama = 1
                 Websock.send_pos_unk(Listen.unk)
                 array = msg_readressage()
                 self.mesh_conn.send(array)
-        elif (!Mesh.addressed && ama == 1) :
+        elif (ama == 1) :
+            dif = prev.model.__eq__(curr)
             self.ama_care(dif)
         else :
-            array = self.mesh_color()
+            array = msg_color(self.model._model)
             self.mesh_conn.send(array)
 
     def send_table(self):
@@ -244,7 +249,7 @@ class Mesh(Thread):
 
     def get_mac(self) :
         data = "a"
-        while (data != ""):
+        while (self.comp != 4):#HARDCODE
         try :
             data = self.conn.recv(1500)
         except :

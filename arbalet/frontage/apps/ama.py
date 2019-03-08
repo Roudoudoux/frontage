@@ -19,7 +19,6 @@ from db.base import session_factory
 from json import dumps
 from numpy import array
 
-
 class Ama(Fap) :
         PLAYABLE = True
         ACTIVATED = True
@@ -30,7 +29,9 @@ class Ama(Fap) :
                 self.rows = 0
                 self.cols = 0
                 self.coord = (-1,-1)
-                self.pixels = {'default' : ((-1,-1), -1)}
+                self.pixels = get_pixels_dic()
+                if self.pixels == {} :
+                    self.pixels = {'default' : ((-1,-1), -1)}
                 self.pos_unknown = {}
 
         #get information from frontage-frontend
@@ -44,40 +45,43 @@ class Ama(Fap) :
 
                 #Format du json {x:int, y:int}
                 if (data['x'] != None):
-                    x = int(data['x'])
-                    y = int(data['y'])
-                    self.coord = (x, y)
+                        x = int(data['x'])
+                        y = int(data['y'])
+                        self.coord = (x, y)
                 elif (data['continue'] != None):
-                    self.action = 1
+                        self.action = 1
                 else :
-                    self.action = -1
+                        self.action = -1
 
         #send the color matrix on RabbitMQ to be displayed on the mesh network to address a pixel
         def matriceR(self, ind) :
-            self.model.set_all(array((-1,-1,-1)))
-            for i in range(ind-1) :
-                x = i / self.cols
-                y = i % self.cols
-                self.model.set_pixel(x, y, name_to_rgb('green'))
-            x = ind / self.cols
-            y = ind % self.cols
-            self.model.set_pixel(x, y, name_to_rgb('red'))
-            self.model.send()
+                self.model.set_all(array((-1,-1,-1)))
+                for i in range(ind-1) :
+                    x = i / self.cols
+                    y = i % self.cols
+                    self.model.set_pixel(x, y, name_to_rgb('green'))
+                    x = ind / self.cols
+                    y = ind % self.cols
+                    self.model.set_pixel(x, y, name_to_rgb('red'))
+                    self.model.send()
 
         #send the color matrix on RabbitMQ to be displayed on the mesh network to confirm the pixel address
         def matriceG(self, ind) :
                 self.model.set_all('black')
                 for (i, j) in self.addressed :
                         self.model.set_pixel(i, j, name_to_rgb('green'))
-                self.model.send()
+                        self.model.send()
 
         def update(self) :
-            Websock.send_pixels(self.pixels)
+                Websock.send_pixels(self.pixels)
+
+        def update_DB(self) :
+            self.pixels.pop('default')
             Websock.send_pos_unk({})
             #Update DB
             while (len(self.pixels) != 0) :
                 (mac, ((x,y),ind)) = self.pixels.popitem()
-                add_cell(x, y, mac)
+                add_cell(x, y, mac, ind)
 
         def run(self, params, expires_at=None) :
                 # get necessary informations (may be shift in __init__ ?)
@@ -91,29 +95,30 @@ class Ama(Fap) :
                 #Start the AMA procedure
                 while (len(self.pos_unknown) != 0) : #AMA shall continue as long as there are pixels without known position
                     if self.action == 1 : #the previous pixel has its right position
-                        (mac, ((x,y),ind)) = self.pos_unknown.popitem()
+                            (mac, ((x,y),ind)) = self.pos_unknown.popitem()
                     else : #the previous position was hill initialize
-                        self.pixels.pop(mac)
-                    self.matriceR(ind)
-                    while (!(self.coord in [val[0] for val in self.pixels.values()])): #wait for the administrator to gives the coordonates
+                            self.pixels.pop(mac)
+                            self.matriceR(ind)
+                    while ((self.coord in [val[0] for val in self.pixels.values()])): #wait for the administrator to gives the coordonates
                         continue
-                    # tmp_coord = self.coord
+                # tmp_coord = self.coord
                     self.pixels[mac]=(self.coord, ind) #update of the local dictionary
                     self.matriceG(ind)
                     self.action = 0
                     while self.action == 0 : #wait for the confirmation of the administrator
                         continue
                     if action == 1 : #administrator ensures the rightfullness of the coordonate
-                        self.update(mac, self.coord, ind)
+                            self.update()
                     else : # the pixel is reput in the pos_unknown dictionary as its position is false
-                        self.pos_unknown[mac] = ((x,y), ind)
-                #Start the up right verification
+                            self.pos_unknown[mac] = ((x,y), ind)
+                            #Start the up right verification
                 for i in range(self.rows) :
                     for j in range(self.cols) :
-                        self.model.set_pixel(i, j, name_to_rgb('red'))
-                        self.model.send()
-                        sleep(0.1)
-                self.update() #publish on REDIS and save in DB the new pixels dictionary
-                #Tels mesh.py to shift in COLOR mod
+                            self.model.set_pixel(i, j, name_to_rgb('red'))
+                            self.model.send()
+                            sleep(0.1)
+                            self.update_DB() #publish on REDIS and save in DB the new pixels dictionary
+                            #Tels mesh.py to shift in COLOR mod
                 self.model.set_all(array((-1, -1, -1)))
                 self.model.send()
+                

@@ -81,9 +81,9 @@ class SchedulerState(object):
         session.close()
 
     @staticmethod
-    def add_cell(x, y, mac_address):
+    def add_cell(x, y, mac_address, ind = 0):
         session = session_factory()
-        table = CellTableModel(x, y, mac_address)
+        table = CellTableModel(x, y, mac_address, ind)
         session.add(table)
         session.commit()
         session.close()
@@ -108,6 +108,16 @@ class SchedulerState(object):
                 cell.MacAddress = mac_address
         session.commit()
         session.close()
+
+    @staticmethod
+    def get_pixels_dic() :
+        session = session_factory()
+        table = session.query(CellTableModel).all()
+        dic = {}
+        for cell in table :
+            dic[cell.MacAddress] = ((cell.X, cell.Y), cell.Ind)
+        session.close()
+        return dic
 
     @staticmethod
     def get_expires_value():
