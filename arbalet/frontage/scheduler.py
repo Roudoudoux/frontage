@@ -26,7 +26,7 @@ class Scheduler(object):
         clear_all_task()
 
         redis.set(SchedulerState.KEY_USERS_Q, '[]')
-        redis.set(SchedulerState.KEY_FORCED_APP, False)
+        redis.set(SchedulerState.KEY_FORCED_APP, 'False')
 
         self.frontage = Frontage()
         self.current_app_state = None

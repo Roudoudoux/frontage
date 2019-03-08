@@ -2,6 +2,7 @@ from __future__ import print_function
 
 from os import environ
 from model import Model
+from db.models import DimensionsModel
 from threading import Thread
 from server.flaskutils import print_flush
 

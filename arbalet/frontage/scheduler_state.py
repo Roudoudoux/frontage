@@ -141,11 +141,11 @@ class SchedulerState(object):
 
     @staticmethod
     def set_expire_soon(value=True):
-        redis.set(SchedulerState.KEY_NOTICE_EXPIRE_SOON, value)
+        redis.set(SchedulerState.KEY_NOTICE_EXPIRE_SOON, str(value))
 
     @staticmethod
     def set_expire(value=True):
-        redis.set(SchedulerState.KEY_NOTICE_EXPIRE, value)
+        redis.set(SchedulerState.KEY_NOTICE_EXPIRE, str(value))
 
     @staticmethod
     def get_expire():
@@ -225,7 +225,7 @@ class SchedulerState(object):
 
     @staticmethod
     def set_frontage_on(value):
-        redis.set(SchedulerState.KEY_FRONTAGE_ON_OFF, value)
+        redis.set(SchedulerState.KEY_FRONTAGE_ON_OFF, str(value))
 
     @staticmethod
     def is_frontage_on():
@@ -241,7 +241,7 @@ class SchedulerState(object):
     @staticmethod
     def set_usable(value):
         # redis.set(SchedulerState.KEY_USABLE, str(value))
-        redis.set(SchedulerState.KEY_USABLE, value)
+        redis.set(SchedulerState.KEY_USABLE, str(value))
 
     @staticmethod
     def set_enable_state(value):
@@ -569,7 +569,7 @@ class SchedulerState(object):
 
     @staticmethod
     def set_event_lock(val):
-        redis.set(SchedulerState.KEY_EVENT_LOCK, val)
+        redis.set(SchedulerState.KEY_EVENT_LOCK, str(val))
 
     @staticmethod
     def is_event_lock():
