@@ -11,15 +11,34 @@ from utils.crc import crc_get, crc_check
 from utils.websock import Websock
 from model import Model
 from scheduler_state import SchedulerState
+
+import struct
+
+def get_ip_address(ifname):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    return socket.inet_ntoa(fcntl.ioctl(
+        s.fileno(),
+        0x8915,  # SIOCGIFADDR
+        struct.pack('256s', bytes(ifname[:15], 'utf-8'))
+    )[20:24])
+
 #import goto
 
-# CONSTANTS 
+# CONSTANTS
 
 # Connection
-HOST='10.42.0.1'
+HOST='0.0.0.0'#str(get_ip_address('eth0'))
 #HOST='10.0.0.1'
 PORT=9988
 SOFT_VERSION = 1
+
+print("")
+print("")
+print("")
+print(HOST)
+print("")
+print("")
+print("")
 
 #Frame's type
 BEACON = 1
@@ -126,7 +145,7 @@ def msg_color(colors, ama= False):
 class Listen(Thread) :
     deco = {}
     unk = {}
-    
+
     def __init__(self, com) :
         print("Listen init")
         Thread.__init__(self)
@@ -263,7 +282,7 @@ class Mesh(Thread):
                 data = self.conn.recv(1500)
             except :
                 pass
-            if (data != "" and crc_check(data[0:16])) :
+            if (data != "a" and crc_check(data[0:16])) :
                 if data[TYPE] == BEACON :
                     print("BEACON : %d-%d-%d-%d-%d-%d" % (int(data[DATA]), int(data[DATA+1]), int(data[DATA+2]), int(data[DATA+3]), int(data[DATA+4]), int(data[DATA+5])))
                     mac = [int(data[DATA]), int(data[DATA+1]), int(data[DATA+2]), int(data[DATA+3]), int(data[DATA+4]), int(data[DATA+5])]
@@ -278,8 +297,8 @@ class Mesh(Thread):
                     #time.sleep(1)
                 else :
                     print("A message was recieved but it is not a BEACON")
-            else :
-                print("Empty message or invalid CRC")
+            elif data != "a" :
+                print("Empty message or invalid CRC", data)
 
     def run(self):
         try:
@@ -318,10 +337,11 @@ def main() : #Kinda main-like. You can still put executable code between functio
                 Mesh.socket.listen(5)
             except socket.error as msg:
                 print("Socket has failed :",msg)
+                time.sleep(0.1)
                 continue
             break
         socket_thread = None
-        print("Socket opened, waiting for connection...")
+        print("Socket opened, waiting for connection...") 
         while True :
             conn, addr = Mesh.socket.accept()
             print("Connection accepted")
