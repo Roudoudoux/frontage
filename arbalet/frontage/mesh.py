@@ -32,14 +32,6 @@ HOST='0.0.0.0'#str(get_ip_address('eth0'))
 PORT=9988
 SOFT_VERSION = 1
 
-print_flush("")
-print_flush("")
-print_flush("")
-print_flush(HOST)
-print_flush("")
-print_flush("")
-print_flush("")
-
 #Frame's type
 BEACON = 1
 INSTALL = 3
@@ -120,39 +112,34 @@ def msg_readressage():#Check why no mac
     return array
 
 def msg_color(colors, ama= False):
-    #print_flush(colors)
     l = len(Mesh.pixels) + len(Listen.deco)
+    m = len(colors)
     array = bytearray(l*3 + 4 + ceil((l*3 + 4)/7))
     array[VERSION] = SOFT_VERSION
     array[TYPE] = COLOR
     Mesh.sequence = (Mesh.sequence + 1) % 65536
     array[DATA] = Mesh.sequence // 256
     array[DATA+1] = Mesh.sequence % 256
-    #print_flush(array[DATA], array[DATA+1], array[DATA]*256 + array[DATA+1])
-    for v in Mesh.pixels.values():
-        ((i,j), ind) = v
+    for val in Mesh.pixels.values():
+        ((i,j), ind) = val
+        print_flush(val, ama)
         if ( i != -1 and j != -1):
             if (ama ) :
-                (r,v,b) = colors[ind/l][ind % l]
+                (r,v,b) = colors[int(ind/m)][ind % m]
             else :
                 (r,v,b) = colors[i][j]
+                print_flush(r, v, b)
         else:
             r= v= b= 0
-        array[DATA + 2 + ind*3] = r
-        array[DATA + 3 + ind*3] = v
-        array[DATA + 4 + ind*3] = b
-    for v in Listen.deco.values():
-        ((i,j), ind) = v
-        if ( i != -1 and j != -1):
-            if (ama ) :
-                (r,v,b) = colors[ind/l][ind % l]
-            else :
-                (r,v,b) = colors[i][j]
-        else:
-            r= v= b= 0
-        array[DATA + 2 + ind*3] = r
-        array[DATA + 3 + ind*3] = v
-        array[DATA + 4 + ind*3] = b
+        array[DATA + 2 + ind*3] = min(255, max(0, int(r*255)))
+        array[DATA + 3 + ind*3] = min(255, max(0, int(v*255)))
+        array[DATA + 4 + ind*3] = min(255, max(0, int(b*255)))
+    for val in Listen.deco.values():
+        ((i,j), ind) = val
+        r= v= b= 0
+        array[DATA + 2 + ind*3] = min(255, max(0, int(r*255)))
+        array[DATA + 3 + ind*3] = min(255, max(0, int(v*255)))
+        array[DATA + 4 + ind*3] = min(255, max(0, int(b*255)))
     crc_get(array)
     return array
 
@@ -226,7 +213,6 @@ class Mesh(Thread):
     sequence = 0
 
     def __init__(self, conn, addr):
-        print_flush("Mesh init")
         Thread.__init__(self)
         #Communication with mes network config
         self.mesh_conn = conn
@@ -234,7 +220,6 @@ class Mesh(Thread):
         self.ama_check = False
         self.comp = 0
         self.model = Model(SchedulerState.get_rows(), SchedulerState.get_cols())
-        print_flush("la matrice fait :" + str(SchedulerState.get_rows()) + str(SchedulerState.get_cols()))
 
         self.stopped = False
         self.l = Listen(self)
@@ -244,7 +229,6 @@ class Mesh(Thread):
         self.connection = None
         credentials = pika.PlainCredentials(os.environ['RABBITMQ_DEFAULT_USER'], os.environ['RABBITMQ_DEFAULT_PASS'])
         self.params = pika.ConnectionParameters(host='rabbit', credentials=credentials, heartbeat = 0)
-        print_flush("Mesh fin init")
 
     def negative_model(self) :
         i = 0
@@ -252,7 +236,9 @@ class Mesh(Thread):
         while(i < self.model.get_height()) :
             j = 0
             while (j < self.model.get_width()) :
-                if (self.model.get_pixel(i,j) != (-1, -1, -1)):
+                tmp = self.model.get_pixel(i,j)
+                print_flush(tmp)
+                if ( (tmp[0]+tmp[1]+tmp[2]) != -3):
                     return False
                 j += 1
             i += 1
@@ -268,14 +254,9 @@ class Mesh(Thread):
 
     def callback(self, ch, method, properties, body):
         #eviter de le faire dans tous les cas
-        print_flush("Reached callback")
         # prev = self.model.copy()
-        print_flush("Managed to copy model")
-        print_flush(body)
         b = body.decode('ascii')
-        print_flush(b)
         self.model.set_from_json(b, True)
-        print_flush("Decripted JSON")
         if self.negative_model() :
             Mesh.ama += 1
             if Mesh.ama == 1 :
@@ -296,9 +277,7 @@ class Mesh(Thread):
             # dif = self.model.__eq__(prev)
             self.ama_care(dif)
         else :
-            print_flush("Preparing to send colors...")
             array = msg_color(self.model._model)
-            print_flush("Colors ready")
             self.mesh_conn.send(array)
             print_flush("Send colors")
 
@@ -318,7 +297,6 @@ class Mesh(Thread):
 
     def get_mac(self) :
         data = "a"
-        print_flush("on commence a recup les addr mac")
         while (self.comp != 2):#HARDCODE
             try :
                 print_flush("on attend des données")
@@ -349,7 +327,6 @@ class Mesh(Thread):
         print_flush("end of get_mac function")
 
     def run(self):
-        print_flush("start running ^^")
         try:
             self.connection = pika.BlockingConnection(self.params)
             self.channel = self.connection.channel()
@@ -379,7 +356,12 @@ class Mesh(Thread):
 
     def close_socket(self) :
         print_flush("exiting thread, closing connection")
-        self.mesh_conn.close()
+        if self.mesh_conn is not None :
+            self.mesh_conn.close()
+        if self.channel is not None:
+            self.channel.close()
+        if self.connection is not None:
+            self.connection.close()
         print_flush("Closed connection, exiting thread...")
         self.stopped = True
 
@@ -399,7 +381,6 @@ def main() :
         socket_thread = None
         print_flush("Socket opened, waiting for connection...")
         while True :
-            print_flush("try to coonect")
             conn, addr = Mesh.socket.accept()
             print_flush("Connection accepted")
             if (socket_thread != None) :
@@ -411,5 +392,4 @@ def main() :
             socket_thread.run()
 
 if __name__ == '__main__' :
-    print_flush("Yo")
     main()
