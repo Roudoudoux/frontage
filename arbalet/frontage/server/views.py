@@ -342,9 +342,12 @@ def set_building_dimensions(user):
         abort(415, 'Missing height value')
     if 'width' not in body:
         abort(415, 'Missing width value')
+    if 'amount' not in body:
+        abort(415, 'Missing amount value')
 
     SchedulerState.set_rows(body['height'])
     SchedulerState.set_cols(body['width'])
+    #SchedulerState.set_amount(body['amount'])
     return jsonify(height=SchedulerState.get_rows(),
                   width=SchedulerState.get_cols())
 
