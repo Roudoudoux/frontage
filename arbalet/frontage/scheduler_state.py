@@ -65,6 +65,14 @@ class SchedulerState(object):
         return cols
 
     @staticmethod
+    def get_amount():
+        session = session_factory()
+        amount = session.query(DimensionsModel).first().amount
+        session.close()
+        return amount
+
+
+    @staticmethod
     def set_rows(value):
         session = session_factory()
         conf = session.query(DimensionsModel).first()
@@ -77,6 +85,14 @@ class SchedulerState(object):
         session = session_factory()
         conf = session.query(DimensionsModel).first()
         conf.cols = value
+        session.commit()
+        session.close()
+
+    @staticmethod
+    def set_amount(value):
+        session = session_factory()
+        conf = session.query(DimensionsModel).first()
+        conf.amount = value
         session.commit()
         session.close()
 
