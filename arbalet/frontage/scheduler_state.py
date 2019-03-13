@@ -105,7 +105,7 @@ class SchedulerState(object):
             if (cell.X == x and cell.Y == y):
                 isInTable = True
                 cell.MacAddress = mac_address
-        if (isInTable == False)
+        if (isInTable == False):
             cell = CellTableModel(x, y, mac_address, ind)
             session.add(cell)
             session.commit()

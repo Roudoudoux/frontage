@@ -24,17 +24,17 @@ class DimensionsModel(Base):
     uniqid = Column(String(36), primary_key=True)
     rows = Column(Integer)
     cols = Column(Integer)
-    # amount = Column(Integer)
+    amount = Column(Integer)
 
     def __init__(self):
         self.uniqid = str(uuid4())
         self.rows = 4
         self.cols = 19
-        # self.amount = 1
+        self.amount = 1
 
     def __repr__(self):
-        return '<dimensionsmodel %r (%r) (%r)>' % (
-            self.uniqid, self.rows, self.cols)
+        return '<dimensionsmodel %r (%r) (%r) (%r)>' % (
+            self.uniqid, self.rows, self.cols, self.amount)
 
 class CellTableModel(Base):
     __tablename__ = 'celltablemodel'

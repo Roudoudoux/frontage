@@ -347,9 +347,10 @@ def set_building_dimensions(user):
 
     SchedulerState.set_rows(body['height'])
     SchedulerState.set_cols(body['width'])
-    #SchedulerState.set_amount(body['amount'])
+    SchedulerState.set_amount(body['amount'])
     return jsonify(height=SchedulerState.get_rows(),
-                  width=SchedulerState.get_cols())
+                  width=SchedulerState.get_cols(),
+                  amount=SchedulerState.get_amount())
 
 @blueprint.route('/b/admin/settings/mesh/dimensions', methods=['GET'])
 @authentication_required
@@ -358,7 +359,8 @@ def get_building_dimensions(user):
         abort(403, "Forbidden Bru")
 
     return jsonify(height=SchedulerState.get_rows(),
-                  width=SchedulerState.get_cols())
+                  width=SchedulerState.get_cols(),
+                  amount=SchedulerState.get_amount())
 
 @blueprint.route('/b/admin/settings/mesh/pixel/set', methods=['POST'])
 @authentication_required
