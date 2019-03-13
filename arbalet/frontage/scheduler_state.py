@@ -112,27 +112,6 @@ class SchedulerState(object):
         session.close()
 
     @staticmethod
-    def modify_cell_position(x, y, mac_address):
-        session = session_factory()
-        table = session.query(CellTableModel).all()
-        for cell in table:
-            if (cell.MacAddress == mac_address):
-                cell.X = x
-                cell.Y = y
-        session.commit()
-        session.close()
-
-    @staticmethod
-    def modify_cell_address(x, y, mac_address):
-        session = session_factory()
-        table = session.query(CellTableModel).all()
-        for cell in table:
-            if (cell.X == x and cell.Y == y):
-                cell.MacAddress = mac_address
-        session.commit()
-        session.close()
-
-    @staticmethod
     def get_pixels_dic() :
         session = session_factory()
         table = session.query(CellTableModel).all()
