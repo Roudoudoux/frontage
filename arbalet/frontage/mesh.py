@@ -122,13 +122,13 @@ def msg_color(colors, ama= False):
     array[DATA+1] = Mesh.sequence % 256
     for val in Mesh.pixels.values():
         ((i,j), ind) = val
-        print_flush(val, ama)
+        #print_flush(val, ama)
         if ( i != -1 and j != -1):
             if (ama ) :
                 (r,v,b) = colors[int(ind/m)][ind % m]
             else :
                 (r,v,b) = colors[i][j]
-                print_flush(r, v, b)
+                #print_flush(r, v, b)
         else:
             r= v= b= 0
         array[DATA + 2 + ind*3] = min(255, max(0, int(r*255)))
@@ -232,12 +232,12 @@ class Mesh(Thread):
 
     def negative_model(self) :
         i = 0
-        print_flush(self.model.get_height(), self.model.get_width())
+        #print_flush(self.model.get_height(), self.model.get_width())
         while(i < self.model.get_height()) :
             j = 0
             while (j < self.model.get_width()) :
                 tmp = self.model.get_pixel(i,j)
-                print_flush(tmp)
+                #print_flush(tmp)
                 if ( (tmp[0]+tmp[1]+tmp[2]) != -3):
                     return False
                 j += 1
@@ -256,7 +256,7 @@ class Mesh(Thread):
         #eviter de le faire dans tous les cas
         # prev = self.model.copy()
         b = body.decode('ascii')
-        self.model.set_from_json(b, True)
+        self.model.set_from_json(b)
         if self.negative_model() :
             Mesh.ama += 1
             if Mesh.ama == 1 :
@@ -278,8 +278,9 @@ class Mesh(Thread):
             self.ama_care(dif)
         else :
             array = msg_color(self.model._model)
+            #print_flush("(%d, %d, %d)" % (int(array[DATA+2]), int(array[DATA+3]), int(array[DATA+4])))
             self.mesh_conn.send(array)
-            print_flush("Send colors")
+            #print_flush("Send colors")
 
     def send_table(self):
         pass
@@ -342,6 +343,8 @@ class Mesh(Thread):
 
             #TEMPORAIRE
             array = msg_ama(AMA_INIT)
+            self.mesh_conn.send(array)
+            array = msg_ama(AMA_COLOR)
             self.mesh_conn.send(array)
             Mesh.ama = 2
             #FIN TEMPORAIRE

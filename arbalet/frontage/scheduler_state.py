@@ -126,6 +126,16 @@ class SchedulerState(object):
         session.close()
 
     @staticmethod
+    def get_pixels_dic() :
+        session = session_factory()
+        table = session.query(CellTableModel).all()
+        dic = {}
+        for cell in table :
+            dic[cell.MacAddress] = ((cell.X, cell.Y), cell.Ind)
+        session.close()
+        return dic
+
+    @staticmethod
     def get_expires_value():
         session = session_factory()
         expires = session.query(ConfigModel).first().expires_delay

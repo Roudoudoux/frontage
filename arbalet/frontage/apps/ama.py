@@ -29,7 +29,7 @@ class Ama(Fap) :
                 self.rows = 0
                 self.cols = 0
                 self.coord = (-1,-1)
-                self.pixels = get_pixels_dic()
+                self.pixels = SchedulerState.get_pixels_dic()
                 if self.pixels == {} :
                     self.pixels = {'default' : ((-1,-1), -1)}
                 self.pos_unknown = {}
@@ -121,4 +121,3 @@ class Ama(Fap) :
                             #Tels mesh.py to shift in COLOR mod
                 self.model.set_all(array((-1, -1, -1)))
                 self.model.send()
-                

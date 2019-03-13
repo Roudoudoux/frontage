@@ -202,7 +202,7 @@ class Scheduler(object):
                 return self.start_default_app()
 
     def print_scheduler_info(self):
-        if self.count % 10 == 0:
+        if self.count % 100 == 0:
             self.count = 0
             print_flush(" ========== Scheduling ==========")
             print_flush("-------- Enable State")

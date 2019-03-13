@@ -20,6 +20,7 @@ from apps.snake import Snake
 from apps.tetris import Tetris
 from apps.snap import Snap
 from apps.drawing import Drawing
+from apps.ama import Ama
 
 class TestApp():
     def run(self, params):
@@ -34,6 +35,7 @@ def clear_all_task():
 
 @celery.task
 def start_default_fap(app):
+    print_flush(app)
     SchedulerState.set_app_started_at()
     # app['expire_at'] = str(
     #     datetime.datetime.now())
@@ -57,6 +59,8 @@ def start_default_fap(app):
 
     SchedulerState.set_current_app(app)
     SchedulerState.set_event_lock(False)
+    print_flush(app)
+    print_flush(globals())
     fap = globals()[app['name']](app['username'], app['userid'])
     try:
         fap.run(params=params)
