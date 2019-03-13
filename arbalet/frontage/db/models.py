@@ -45,7 +45,7 @@ class CellTableModel(Base):
     MacAddress = Column(String(60))
     Ind = Column(Integer)
 
-    def __init__(self, x, y, macAddress, ind = 0):
+    def __init__(self, x, y, macAddress, ind):
         self.uniqid = str(uuid4())
         self.X = x
         self.Y = y
