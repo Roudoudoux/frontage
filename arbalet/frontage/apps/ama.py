@@ -5,6 +5,8 @@ Presentation
 
 """
 
+import time
+
 from json import loads
 
 from apps.fap import Fap
@@ -18,6 +20,8 @@ from db.models import FappModel
 from db.base import session_factory
 from json import dumps
 from numpy import array
+
+from server.flaskutils import print_flush
 
 class Ama(Fap) :
         PLAYABLE = True
@@ -55,22 +59,26 @@ class Ama(Fap) :
 
         #send the color matrix on RabbitMQ to be displayed on the mesh network to address a pixel
         def matriceR(self, ind) :
-                self.model.set_all(array((-1,-1,-1)))
-                for i in range(ind-1) :
-                    x = i / self.cols
-                    y = i % self.cols
-                    self.model.set_pixel(x, y, name_to_rgb('green'))
-                    x = ind / self.cols
-                    y = ind % self.cols
-                    self.model.set_pixel(x, y, name_to_rgb('red'))
-                    self.model.send()
+            print_flush("entrée dans matriceR........................................")
+            self.model.set_all(array((-1,-1,-1)))
+            for i in range(ind) :
+                x = int(i / self.cols)
+                y = i % self.cols
+                self.model.set_pixel(x, y, name_to_rgb('green'))
+            x = int(ind / self.cols)
+            y = ind % self.cols
+            self.model.set_pixel(x, y, name_to_rgb('red'))
+            self.send_model()
+            print_flush("sortie de matriceR..............................................")
 
         #send the color matrix on RabbitMQ to be displayed on the mesh network to confirm the pixel address
         def matriceG(self, ind) :
-                self.model.set_all('black')
-                for (i, j) in self.addressed :
-                        self.model.set_pixel(i, j, name_to_rgb('green'))
-                        self.model.send()
+            print_flush("entrée dans matriceG........................................")
+            self.model.set_all('black')
+            for (i,j) in self.pixels.values()  :
+                self.model.set_pixel(i, j, name_to_rgb('green'))
+            self.send_model()
+            print_flush("sortie de matriceG........................................")
 
         def update(self) :
                 Websock.send_pixels(self.pixels)
@@ -84,40 +92,60 @@ class Ama(Fap) :
                 add_cell(x, y, mac, ind)
 
         def run(self, params, expires_at=None) :
-                # get necessary informations (may be shift in __init__ ?)
-                self.rows = SchedulerState.get_rows()
-                self.cols = SchedulerState.get_cols()
-                self.pos_unknown = Websock.get_pos_unk() #Exemple {'@mac1' : ((x,j), 0), ...}}
-                print(self.pos_unknown) #dummy print
-                #Tels mesh.py to shift in AMA mod
-                self.model.set_all(array((-1, -1, -1)))
-                self.model.send()
-                #Start the AMA procedure
-                while (len(self.pos_unknown) != 0) : #AMA shall continue as long as there are pixels without known position
-                    if self.action == 1 : #the previous pixel has its right position
-                            (mac, ((x,y),ind)) = self.pos_unknown.popitem()
-                    else : #the previous position was hill initialize
-                            self.pixels.pop(mac)
-                            self.matriceR(ind)
-                    while ((self.coord in [val[0] for val in self.pixels.values()])): #wait for the administrator to gives the coordonates
-                        continue
+            self.start_socket()
+            # get necessary informations (may be shift in __init__ ?)
+            self.rows = SchedulerState.get_rows()
+            self.cols = SchedulerState.get_cols()
+            self.pos_unknown = Websock.get_pos_unk() #Exemple {'@mac1' : ((x,j), 0), ...}}
+            if self.pos_unknown == None :
+                self.pos_unknown = {'test': ((1,1),0)}
+            print_flush(self.pos_unknown) #dummy print
+            #Tels mesh.py to shift in AMA mod
+            self.model.set_all(array((-1, -1, -1)))
+            print_flush("je suis avant le send_model..............................................................;;")
+            self.send_model()
+            print_flush("Je suis avant la boucle ..................................................................;")
+            #Start the AMA procedure
+            while (len(self.pos_unknown) != 0) :
+                #AMA shall continue as long as there are pixels without known position
+                if self.action == 1 :
+                    #the previous pixel has its right position
+                    (mac, ((x,y),ind)) = self.pos_unknown.popitem()
+                    print_flush("je suis rentré dans self.action == 1")
+                else :
+                    #the previous position was hill initialize
+                    self.pixels.pop(mac)
+                    self.matriceR(ind)
+                print_flush("avt la boucle d'attente active............................................................;")
+                print_flush([(val[0][0],val[0][1]) for val in self.pixels.values()])
+                while ((self.coord in [(val[0][0],val[0][1]) for val in self.pixels.values()])):
+                    #wait for the administrator to gives the coordonates
+                    print_flush("I'm in !!!!!!!!!!!!!!!!!!")
+                    self.send_model()
+                    time.sleep(0.5)
+                    continue
+                print_flush("apr la boucle d'attente active............................................................;")
                 # tmp_coord = self.coord
-                    self.pixels[mac]=(self.coord, ind) #update of the local dictionary
-                    self.matriceG(ind)
-                    self.action = 0
-                    while self.action == 0 : #wait for the confirmation of the administrator
-                        continue
-                    if action == 1 : #administrator ensures the rightfullness of the coordonate
-                            self.update()
-                    else : # the pixel is reput in the pos_unknown dictionary as its position is false
-                            self.pos_unknown[mac] = ((x,y), ind)
-                            #Start the up right verification
-                for i in range(self.rows) :
-                    for j in range(self.cols) :
-                            self.model.set_pixel(i, j, name_to_rgb('red'))
-                            self.model.send()
-                            sleep(0.1)
-                            self.update_DB() #publish on REDIS and save in DB the new pixels dictionary
-                            #Tels mesh.py to shift in COLOR mod
-                self.model.set_all(array((-1, -1, -1)))
-                self.model.send()
+                self.pixels[mac]=(self.coord, ind) #update of the local dictionary
+                self.matriceG(ind)
+                self.action = 0
+                print_flush("boucle avt la confirmation de self.action....................................................;")
+                while self.action == 0 :
+                    #wait for the confirmation of the administrator
+                    self.send_model()
+                    time.sleep(0.05)
+                    continue
+                if action == 1 : #administrator ensures the rightfullness of the coordonate
+                        self.update()
+                else : # the pixel is reput in the pos_unknown dictionary as its position is false
+                        self.pos_unknown[mac] = ((x,y), ind)
+                        #Start the up right verification
+            for i in range(self.rows) :
+                for j in range(self.cols) :
+                    self.model.set_pixel(i, j, name_to_rgb('red'))
+                    self.send_model()
+                    time.sleep(0.1)
+                    self.update_DB() #publish on REDIS and save in DB the new pixels dictionary
+                    #Tels mesh.py to shift in COLOR mod
+            self.model.set_all(array((-1, -1, -1)))
+            self.send_model()

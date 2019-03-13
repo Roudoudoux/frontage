@@ -59,8 +59,6 @@ def start_default_fap(app):
 
     SchedulerState.set_current_app(app)
     SchedulerState.set_event_lock(False)
-    print_flush(app)
-    print_flush(globals())
     fap = globals()[app['name']](app['username'], app['userid'])
     try:
         fap.run(params=params)
