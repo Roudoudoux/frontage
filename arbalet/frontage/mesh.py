@@ -114,13 +114,14 @@ def msg_readressage():#Check why no mac
 def msg_color(colors, ama= 1):
     l = len(Mesh.pixels) + len(Listen.deco)
     print_flush("there are {0} pixels take into account".format(l))
-    m = len(colors)
+    m = len(colors[0])
     array = bytearray(l*3 + 4 + ceil((l*3 + 4)/7))
     array[VERSION] = SOFT_VERSION
     array[TYPE] = COLOR
     Mesh.sequence = (Mesh.sequence + 1) % 65536
     array[DATA] = Mesh.sequence // 256
     array[DATA+1] = Mesh.sequence % 256
+    print_flush(colors)
     for val in Mesh.pixels.values():
         ((i,j), ind) = val
         #print_flush(val, ama)
@@ -245,7 +246,7 @@ class Mesh(Thread):
                     tmp = self.model.get_pixel(i,j)
                     print_flush("pixels {0} {1} : {2}".format(i,j,tmp))
                     if ( (tmp[0]+tmp[1]+tmp[2]) == -3):
-                        print_flush("quiting ama_model False 0")
+                        print_flush("quiting ama_model True 0")
                         return True
                     j -= 1
                 i -= 1
@@ -258,7 +259,7 @@ class Mesh(Thread):
                 while (j >= 0 ) :
                     tmp = self.model.get_pixel(i,j)
                     print_flush("pixels {0} {1} : {2}".format(i,j,tmp))
-                    if (( (tmp[0]+tmp[1]+tmp[2]) != 0) and (tmp[0] != 1) and (tmp[1] != 1)):
+                    if (( (tmp[0]+tmp[1]+tmp[2]) != 0) and (tmp[0] != 1 and tmp[1]+tmp[2] != 0) and (tmp[1] != 1 and tmp[0]+tmp[2] != 0)):
                         print_flush("quiting ama_model False 1")
                         return False
                     j -= 1
@@ -278,9 +279,8 @@ class Mesh(Thread):
         #Listen.unk = json.loads(Websock.get_pos_unk())
         #Get the Frame format to check
         tmp = Websock.get_ama_model()
-        # if tmp != None:
-        #     print_flush("on a ama_check : {0}".format(tmp))
-        #     self.ama_check = int(tmp) ####################################### BLOQUE ICI Ligne begguée (je ne sais pas pk)
+        if tmp != None:
+            self.ama_check = eval(tmp)['ama'] ####################################### BLOQUE ICI Ligne begguée (je ne sais pas pk)
         print_flush("on passe à ama_model")
         if self.ama_model():
             array = msg_color(self.model._model, self.ama_check)

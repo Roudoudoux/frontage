@@ -120,7 +120,7 @@ class Ama(Fap) :
                     #the previous position was hill initialize
                     self.pixels.pop(mac)
                 self.matriceR(ind)
-                Websock.send_ama_model('0')
+                Websock.send_ama_model(0)
                 print_flush(self.model)
                 print_flush("avt la boucle d'attente active............................................................;")
                 print_flush([(val[0][0],val[0][1]) for val in self.pixels.values()])
@@ -130,10 +130,9 @@ class Ama(Fap) :
                     self.send_model()
                     time.sleep(0.05)
                 print_flush("apr la boucle d'attente active............................................................;")
-                # tmp_coord = self.coord
                 self.pixels[mac]=(self.coord, ind) #update of the local dictionary
                 self.matriceG(ind)
-                Websock.send_ama_model('1')
+                Websock.send_ama_model(1)
                 self.action = 0
                 print_flush("boucle avt la confirmation de self.action....................................................;")
                 while (self.action == 0):

@@ -57,7 +57,7 @@ class Websock(Thread):
         print_flush("###############################################################################")
         print_flush("Send : [matrix type = {0}]".format(ama_model))
         print_flush("###############################################################################")
-        redis.set(AMA, json.dumps(ama_model))
+        redis.set(AMA, json.dumps({'ama' : ama_model}))
 
     @staticmethod
     def get_ama_model():
