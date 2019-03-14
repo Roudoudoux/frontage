@@ -79,6 +79,13 @@ void state_conf() {
 
     int type = 0;
 
+    if (esp_mesh_is_root()) {
+	if (!is_server_connected) {
+	    connect_to_server();
+	    return;//Root can't progress if not connected to the server
+	}
+    }
+
     read_rxbuffer(buf_recv);
     type = type_mesg(buf_recv);
 
@@ -120,6 +127,13 @@ void state_addr() {
     uint8_t buf_recv[CONFIG_MESH_ROUTE_TABLE_SIZE * 3 + 5 + (CONFIG_MESH_ROUTE_TABLE_SIZE * 3 + 4)/7];
     uint8_t buf_send[FRAME_SIZE];
 
+    if (esp_mesh_is_root()) {
+	if (!is_server_connected) {
+	    connect_to_server();
+	    return;//Root can't progress if not connected to the server
+	}
+    }
+    
     read_rxbuffer(buf_recv);
     type = type_mesg(buf_recv);
 
@@ -271,6 +285,13 @@ void state_error() {
     uint8_t buf_send[FRAME_SIZE];
     uint8_t buf_blank[FRAME_SIZE] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
+    if (esp_mesh_is_root()) {
+	if (!is_server_connected) {
+	    connect_to_server();
+	    return;//Root can't progress if not connected to the server
+	}
+    }
+    
     if (buf_err[TYPE] != 0) {
 	if (FRAME_SIZE < len) {
 	    copy_buffer(buf_recv, buf_err, FRAME_SIZE);

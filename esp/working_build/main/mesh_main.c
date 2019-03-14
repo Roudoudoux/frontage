@@ -145,11 +145,11 @@ void esp_mesh_state_machine(void * arg) {
 	    break;
 	case CONF :
 	    state_conf();
-	    vTaskDelay(100 / portTICK_PERIOD_MS);
+	    vTaskDelay(10 / portTICK_PERIOD_MS);
 	    break;
 	case ADDR :
 	    state_addr();
-	    vTaskDelay(100 / portTICK_PERIOD_MS);
+	    vTaskDelay(10 / portTICK_PERIOD_MS);
 	    break;
 	case COLOR :
 	    state_color();
@@ -456,7 +456,7 @@ void app_main(void)
     /* Socket creation */
     memset(&tcpServerAddr, 0, sizeof(tcpServerAddr));
     tcpServerAddr.sin_family = AF_INET;
-    tcpServerAddr.sin_addr.s_addr = inet_addr("172.20.0.6");
+    tcpServerAddr.sin_addr.s_addr = inet_addr("10.42.0.1");
     tcpServerAddr.sin_len = sizeof(tcpServerAddr);
     tcpServerAddr.sin_port = htons(9988);
 }
