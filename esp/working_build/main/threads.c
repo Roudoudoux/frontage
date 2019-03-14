@@ -115,7 +115,7 @@ void mesh_emission(void * arg) {
 	    }
 	}
 	break;
-    case B_ACK: 
+    case B_ACK:
 	{
 	    ESP_LOGI(MESH_TAG, "Sending B_ACK");
 	    mesh_addr_t to;
@@ -127,13 +127,22 @@ void mesh_emission(void * arg) {
 	}
 	break;
     case ERROR :
-	if (mesg[DATA] == ERROR_DECO) {
-	    ESP_LOGI(MESH_TAG, "error relay worked");
-	    err = esp_mesh_send(NULL, &data, MESH_DATA_P2P, NULL, 0);
-	    if (err != 0) {
-		ESP_LOGE(MESH_TAG, "Couldn't send ERROR to root - %s", esp_err_to_name(err));
-	    }
-	}
+    {
+      if (mesg[DATA] == ERROR_DECO) {
+        ESP_LOGI(MESH_TAG, "error relay worked");
+        err = esp_mesh_send(NULL, &data, MESH_DATA_P2P, NULL, 0);
+        if (err != 0) {
+          ESP_LOGE(MESH_TAG, "Couldn't send ERROR to root - %s", esp_err_to_name(err));
+        }
+      } else if (mesg[DATA] == ERROR_GOTO) {
+        mesh_addr_t to;
+        get_mac(mesg, to.addr);
+        err = esp_mesh_send(&to, &data, MESH_DATA_P2P, NULL, 0);
+        if (err != 0) {
+          ESP_LOGI(MESH_TAG, "send ERROR_GOTO %d to "MACSTR, mesg[DATA+1], MAC2STR(to.addr));
+        }
+      }
+    }
 	break;
     default : //Broadcast the message to all the mesh. This include AMA, SLEEP and INSTALL frames.
 	for (int i = 0; i < route_table_size; i++) {
