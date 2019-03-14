@@ -49,14 +49,14 @@ class Ama(Fap) :
                     raise ValueError("Incorrect payload value type for AMA Fapp")
 
             #Format du json {x:int, y:int}
-            if (data['x'] != None):
+            if (data.get('x') != None):
                     x = int(data['x'])
                     y = int(data['y'])
                     self.coord = (x, y)
-            elif (data['continue'] != None):
-                    self.action = 1
+            elif (data.get('action') != None):
+                    self.action = data.get('action')
             else :
-                    self.action = -1
+                    print_flush("Received unknown message from frontend")
 
         #send the color matrix on RabbitMQ to be displayed on the mesh network to address a pixel
         def matriceR(self, ind) :
@@ -82,7 +82,8 @@ class Ama(Fap) :
             print_flush("sortie de matriceG........................................")
 
         def update(self) :
-            default = self.pixels.popitem('default')
+            default = self.pixels.pop('default')
+            print_flush(self.pixels)
             Websock.send_pixels(self.pixels)
             if default :
                 self.pixels['default'] = default
@@ -94,22 +95,21 @@ class Ama(Fap) :
             #Update DB
             while (len(self.pixels) != 0) :
                 (mac, ((x,y),ind)) = self.pixels.popitem()
-                add_cell(x, y, mac, ind)
+                SchedulerState.add_cell(x, y, mac, ind)
 
         def run(self, params, expires_at=None) :
-            # self.start_socket()
+            self.start_socket()
             # get necessary informations (may be shift in __init__ ?)
             self.rows = SchedulerState.get_rows()
             self.cols = SchedulerState.get_cols()
             self.pos_unknown = loads(Websock.get_pos_unk()) #Exemple {'@mac1' : ((x,j), 0), ...}}
             print_flush(self.pos_unknown) #dummy print
-            #Tels mesh.py to shift in AMA mod
+            #self.pos_unknown = {'12:58:78:74:56:94':((-1, -1), 0), '12:58:78:74:56:95':((-1, -1), 1), '12:58:78:74:56:96':((-1, -1), 2)}#Dummy            #Tels mesh.py to shift in AMA mod
             print_flush("je change l'etat des esp en ADDR..............................................................;;")
             Websock.send_esp_state('ADDR')
             self.send_model()
             print_flush("Je suis avant la boucle ..................................................................;")
             #Start the AMA procedure
-            iteration = 0
             while (len(self.pos_unknown) != 0) :
                 #AMA shall continue as long as there are pixels without known position
                 if self.action == 1 :
@@ -124,19 +124,11 @@ class Ama(Fap) :
                 print_flush(self.model)
                 print_flush("avt la boucle d'attente active............................................................;")
                 print_flush([(val[0][0],val[0][1]) for val in self.pixels.values()])
+                print_flush(self.coord)
                 while ((self.coord in [(val[0][0],val[0][1]) for val in self.pixels.values()])):#This one looks really wrong => bypassed starting loop 2
                     #wait for the administrator to gives the coordonates
                     self.send_model()
-                    wait += 1
                     time.sleep(0.05)
-                print_flush("voici la valeur de wait : {0}".format(wait))
-                #####################################################
-                if wait == 100 and iteration == 0:                  #
-                    self.coord = (0,0)                              #
-                elif wait == 100 and iteration == 1:                #
-                    self.coord = (0,1)                              #
-                iteration += 1                                      #
-                #####################################################
                 print_flush("apr la boucle d'attente active............................................................;")
                 # tmp_coord = self.coord
                 self.pixels[mac]=(self.coord, ind) #update of the local dictionary
@@ -144,10 +136,8 @@ class Ama(Fap) :
                 Websock.send_ama_model('1')
                 self.action = 0
                 print_flush("boucle avt la confirmation de self.action....................................................;")
-                wait = 0
-                while (self.action == 0) and wait < 100 :
+                while (self.action == 0):
                     #wait for the confirmation of the administrator
-                    wait += 1
                     self.send_model()
                     time.sleep(0.05)
                     continue
@@ -162,6 +152,12 @@ class Ama(Fap) :
                     self.model.set_pixel(i, j, name_to_rgb('red'))
                     self.send_model()
                     time.sleep(0.1)
-                    self.update_DB() #publish on REDIS and save in DB the new pixels dictionary
-                    #Tels mesh.py to shift in COLOR mod
+            self.update_DB() #publish on REDIS and save in DB the new pixels dictionary
+            #Tels mesh.py to shift in COLOR mod
             Websock.send_esp_state('COLOR')
+            print_flush(SchedulerState.get_pixels_dic())
+            self.model.set_all('black')
+            while True:
+                print_flush("Addressing is over...")
+                self.send_model()
+                time.sleep(0.5)
