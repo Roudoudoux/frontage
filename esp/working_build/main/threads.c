@@ -9,6 +9,7 @@
 
 static uint8_t tx_buf[TX_SIZE] = { 0, };
 static uint8_t rx_buf[RX_SIZE] = { 0, };
+static uint8_t waiting_serv = 0;
 
 
 void mesh_reception(void * arg) {
@@ -46,9 +47,26 @@ void server_reception(void * arg) {
     while(is_running) {
       len = recv(sock_fd, &buf, 1500, MSG_OOB);
       if (len == -1) {
-        ESP_LOGE(MESH_TAG, "Communication Socket error");
-        continue;
+	  waiting_serv++;
+	  ESP_LOGE(MESH_TAG, "Communication Socket error, %d", waiting_serv);
+	  if (waiting_serv == 15) {
+	      is_server_connected = false;
+	      waiting_serv = 0;
+	      vTaskDelete(NULL);
+	  }
+	  continue;
       }
+      if (len == 0) {
+	  waiting_serv++;
+	  ESP_LOGE(MESH_TAG, "Empty message from server, %d", waiting_serv);
+	  if (waiting_serv == 15) {
+	      is_server_connected = false;
+	      waiting_serv = 0;
+	      vTaskDelete(NULL);
+	  }
+	  continue;
+      }
+      waiting_serv = 0;
       ESP_LOGI(MESH_TAG, "Message received from server of len %d = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", len, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9], buf[10], buf[11], buf[12], buf[13], buf[14], buf[15]);
       int head = 0;
       while(head < len) {
