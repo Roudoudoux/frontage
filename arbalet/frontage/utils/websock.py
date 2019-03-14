@@ -10,6 +10,8 @@ KEY_WS_SEND = "KEY_WS_SEND"
 KEY_WS_SEND_MAC = "KEY_WS_SEND_MAC"
 POS_UNK = "POS_UNK"
 PIXELS = "PIXELS"
+ADDR = "ADDR"
+AMA = "AMA"
 
 class Websock(Thread):
     def __init__(self, fap, host='0.0.0.0', port=9988):
@@ -43,6 +45,38 @@ class Websock(Thread):
         print_flush("###############################################################################")
         redis.set(PIXELS, json.dumps(pixels))
 
+    @staticmethod
+    def send_esp_state(esp_state):
+        print_flush("###############################################################################")
+        print_flush("Send : [esp_state = {0}]".format(esp_state))
+        print_flush("###############################################################################")
+        redis.set(ADDR, json.dumps(esp_state))
+
+    @staticmethod
+    def send_ama_model(ama_model):
+        print_flush("###############################################################################")
+        print_flush("Send : [matrix type = {0}]".format(ama_model))
+        print_flush("###############################################################################")
+        redis.set(AMA, json.dumps(ama_model))
+
+    @staticmethod
+    def get_ama_model():
+        data = redis_get(AMA, None)
+        if data:
+            redis.set(AMA, 'None')
+        if data == 'None':
+             return None
+        return data
+
+
+    @staticmethod
+    def get_esp_state():
+        data = redis_get(ADDR, None)
+        if data:
+            redis.set(ADDR, 'None')
+        # if data == 'None':
+        #     return None
+        return data
 
     @staticmethod
     def get_data():

@@ -111,8 +111,9 @@ def msg_readressage():#Check why no mac
     array[DATA+1] = STATE_CONF
     return array
 
-def msg_color(colors, ama= False):
+def msg_color(colors, ama= 1):
     l = len(Mesh.pixels) + len(Listen.deco)
+    print_flush("there are {0} pixels take into account".format(l))
     m = len(colors)
     array = bytearray(l*3 + 4 + ceil((l*3 + 4)/7))
     array[VERSION] = SOFT_VERSION
@@ -124,7 +125,7 @@ def msg_color(colors, ama= False):
         ((i,j), ind) = val
         #print_flush(val, ama)
         if ( i != -1 and j != -1):
-            if (ama ) :
+            if (ama == 0 ) :
                 (r,v,b) = colors[int(ind/m)][ind % m]
             else :
                 (r,v,b) = colors[i][j]
@@ -140,7 +141,9 @@ def msg_color(colors, ama= False):
         array[DATA + 2 + ind*3] = min(255, max(0, int(r*255)))
         array[DATA + 3 + ind*3] = min(255, max(0, int(v*255)))
         array[DATA + 4 + ind*3] = min(255, max(0, int(b*255)))
+    print_flush(array)
     crc_get(array)
+    print_flush(array)
     return array
 
 class Listen(Thread) :
@@ -205,6 +208,7 @@ class Listen(Thread) :
 class Mesh(Thread):
     socket
     addressed = False
+    change_esp_state = False
     ama = 0
     rows = 0
     cols = 0
@@ -217,8 +221,8 @@ class Mesh(Thread):
         #Communication with mes network config
         self.mesh_conn = conn
         self.mesh_addr = addr
-        self.ama_check = False
-        self.comp = 0
+        self.ama_check = 0
+        self.p = 0
         self.model = Model(SchedulerState.get_rows(), SchedulerState.get_cols())
 
         self.stopped = False
@@ -230,57 +234,102 @@ class Mesh(Thread):
         credentials = pika.PlainCredentials(os.environ['RABBITMQ_DEFAULT_USER'], os.environ['RABBITMQ_DEFAULT_PASS'])
         self.params = pika.ConnectionParameters(host='rabbit', credentials=credentials, heartbeat = 0)
 
-    def negative_model(self) :
-        i = 0
-        #print_flush(self.model.get_height(), self.model.get_width())
-        while(i < self.model.get_height()) :
-            j = 0
-            while (j < self.model.get_width()) :
-                tmp = self.model.get_pixel(i,j)
-                #print_flush(tmp)
-                if ( (tmp[0]+tmp[1]+tmp[2]) != -3):
-                    return False
-                j += 1
-            i += 1
-        return True
+    def ama_model(self) :
+        print_flush("entering ama_model")
+        i = self.model.get_height()-1
+        if (self.ama_check == 0): #this part fonctionne
+            print_flush("entering kind 0 :")
+            while(i >= 0) :
+                j = self.model.get_width()-1
+                while (j >= 0 ) :
+                    tmp = self.model.get_pixel(i,j)
+                    print_flush("pixels {0} {1} : {2}".format(i,j,tmp))
+                    if ( (tmp[0]+tmp[1]+tmp[2]) == -3):
+                        print_flush("quiting ama_model False 0")
+                        return True
+                    j -= 1
+                i -= 1
+            print_flush("quiting ama_model False 0")
+            return False
+        elif (self.ama_check == 1): #not tested
+            print_flush("entering kind 1 :")
+            while(i >= 0) :
+                j = self.model.get_width()-1
+                while (j >= 0 ) :
+                    tmp = self.model.get_pixel(i,j)
+                    print_flush("pixels {0} {1} : {2}".format(i,j,tmp))
+                    if (( (tmp[0]+tmp[1]+tmp[2]) != 0) and (tmp[0] != 1) and (tmp[1] != 1)):
+                        print_flush("quiting ama_model False 1")
+                        return False
+                    j -= 1
+                i -= 1
+                print_flush("quiting ama_model True 1")
+                return True
 
-    def ama_care(self, dif):
-        Mesh.pixels = json.loads(Websock.get_pixels())
-        Listen.unk = json.loads(Websock.get_pos_unk())
-        array = msg_color(self.model._model, self.ama_check)
-        self.mesh_conn.send(array)
-        if dif :
-            self.ama_check = not self.ama_check
+    def ama_care(self):
+        #Get the new pixel addressed positions
+        print_flush(Mesh.pixels)
+        tmp = Websock.get_pixels()
+        print_flush("tmp : {0}".format(tmp))
+        if tmp != None and tmp != {} :
+            print_flush("tmp : {0}".format(tmp))
+            Mesh.pixels = json.loads(tmp)
+        print_flush(Mesh.pixels)
+        #Listen.unk = json.loads(Websock.get_pos_unk())
+        #Get the Frame format to check
+        tmp = Websock.get_ama_model()
+        # if tmp != None:
+        #     print_flush("on a ama_check : {0}".format(tmp))
+        #     self.ama_check = int(tmp) ####################################### BLOQUE ICI Ligne begguée (je ne sais pas pk)
+        print_flush("on passe à ama_model")
+        if self.ama_model():
+            array = msg_color(self.model._model, self.ama_check)
+            self.mesh_conn.send(array)
 
     def callback(self, ch, method, properties, body):
-        #eviter de le faire dans tous les cas
-        # prev = self.model.copy()
         b = body.decode('ascii')
         self.model.set_from_json(b)
-        if self.negative_model() :
+        tmp = Websock.get_esp_state()
+        if tmp != 'None' :
+            Mesh.change_esp_state = True
+        else :
+            Mesh.change_esp_state = False
+        time.sleep(0.1)
+        self.p += 1
+        print_flush("{2} : on m'a demandé de changer d'état : {0} ({1})".format(Mesh.change_esp_state, tmp, self.p))
+        if Mesh.change_esp_state :
             Mesh.ama += 1
             if Mesh.ama == 1 :
+                print_flush("DEBUT Mesh.ama = 1")
                 Mesh.rows = SchedulerState.get_rows()
                 Mesh.cols = SchedulerState.get_cols()
                 array = msg_ama(AMA_INIT)
                 self.mesh_conn.send(array)
+                print_flush("FIN Mesh.ama = 1")
             elif Mesh.ama == 2 :
+                print_flush("DEBUT Mesh.ama = 2")
                 Mesh.addressed = True
                 array = msg_ama(AMA_COLOR)
                 self.mesh_conn.send(array)
+                print_flush("FIN Mesh.ama = 2")
             else :
+                print_flush("DEBUT Mesh.ama = 3")
                 Mesh.ama = 1
+                Mesh.addressed = False
                 Websock.send_pos_unk(Listen.unk)
                 array = msg_readressage()
                 self.mesh_conn.send(array)
+                print_flush("FIN Mesh.ama = 3")
         elif (Mesh.ama == 1) :
-            # dif = self.model.__eq__(prev)
-            self.ama_care(dif)
-        else :
+            print_flush("phase d'addressage")
+            self.ama_care()
+        elif (Mesh.addressed) :
             array = msg_color(self.model._model)
             #print_flush("(%d, %d, %d)" % (int(array[DATA+2]), int(array[DATA+3]), int(array[DATA+4])))
             self.mesh_conn.send(array)
             #print_flush("Send colors")
+        else :
+            print_flush("it is not the time to send colors")
 
     def send_table(self):
         pass
@@ -298,7 +347,7 @@ class Mesh(Thread):
 
     def get_mac(self) :
         data = "a"
-        while (self.comp != 2):#HARDCODE
+        while (Mesh.comp != 2):#HARDCODE
             try :
                 print_flush("on attend des données")
                 data = self.mesh_conn.recv(1500)
@@ -314,11 +363,11 @@ class Mesh(Thread):
                     if Mesh.pixels.get(mac) != None :
                         print_flush("already got the pixel " + mac)
                         continue
-                    Mesh.pixels[mac]=((0,0), self.comp)
+                    Mesh.pixels[mac]=((-1,-1), Mesh.comp)
                     # Mesh.pixels[mac]=((-1,-1), self.comp)
                     Websock.send_pos_unk(Mesh.pixels)
-                    array = msg_install(data, self.comp)
-                    self.comp += 1
+                    array = msg_install(data, Mesh.comp)
+                    Mesh.comp += 1
                     self.mesh_conn.send(array)
                     #time.sleep(1)
                 else :
@@ -342,11 +391,11 @@ class Mesh(Thread):
             print_flush('Waiting for pixel data on queue "{}".'.format(queue_name))
 
             #TEMPORAIRE
-            array = msg_ama(AMA_INIT)
-            self.mesh_conn.send(array)
-            array = msg_ama(AMA_COLOR)
-            self.mesh_conn.send(array)
-            Mesh.ama = 2
+            # array = msg_ama(AMA_INIT)
+            # self.mesh_conn.send(array)
+            # array = msg_ama(AMA_COLOR)
+            # self.mesh_conn.send(array)
+            # Mesh.ama = 2
             #FIN TEMPORAIRE
 
             self.channel.start_consuming()
