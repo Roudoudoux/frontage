@@ -40,6 +40,7 @@ class Ama(Fap) :
 
         #get information from frontage-frontend
         def handle_message(self, json_data, path=None) :
+                print_flush("Received a JSON File")
                 if json_data is None :
                         raise ValueError("Error : empty message received from WebSocket")
                 elif isinstance(json_data, str) :
@@ -48,11 +49,11 @@ class Ama(Fap) :
                         raise ValueError("Incorrect payload value type for AMA Fapp")
 
                 #Format du json {x:int, y:int}
-                if (data['x'] != None):
+                if (data.get('x') != None):
                         x = int(data['x'])
                         y = int(data['y'])
                         self.coord = (x, y)
-                elif (data['continue'] != None):
+                elif (data.get('continue') != None):
                         self.action = 1
                 else :
                         self.action = -1
@@ -118,9 +119,8 @@ class Ama(Fap) :
                     self.matriceR(ind)
                 print_flush("avt la boucle d'attente active............................................................;")
                 print_flush([(val[0][0],val[0][1]) for val in self.pixels.values()])
-                while ((self.coord in [(val[0][0],val[0][1]) for val in self.pixels.values()])):
+                while ((self.coord in [(val[0][0],val[0][1]) for val in self.pixels.values()])):#This one looks really wrong => bypassed starting loop 2
                     #wait for the administrator to gives the coordonates
-                    print_flush("I'm in !!!!!!!!!!!!!!!!!!")
                     self.send_model()
                     time.sleep(0.5)
                     continue
@@ -135,11 +135,12 @@ class Ama(Fap) :
                     self.send_model()
                     time.sleep(0.05)
                     continue
-                if action == 1 : #administrator ensures the rightfullness of the coordonate
+                if self.action == 1 : #administrator ensures the rightfullness of the coordonate
                         self.update()
                 else : # the pixel is reput in the pos_unknown dictionary as its position is false
                         self.pos_unknown[mac] = ((x,y), ind)
                         #Start the up right verification
+                print_flush("WE DID IT!!!!!! One lap completed!!!!!!!!!")
             for i in range(self.rows) :
                 for j in range(self.cols) :
                     self.model.set_pixel(i, j, name_to_rgb('red'))
