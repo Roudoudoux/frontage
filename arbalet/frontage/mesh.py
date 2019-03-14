@@ -112,9 +112,10 @@ def msg_readressage():#Check why no mac
     return array
 
 def msg_color(colors, ama= 1):
-    l = len(Mesh.pixels) + len(Listen.deco)
-    print_flush("there are {0} pixels take into account".format(l))
+    l = Mesh.comp
+    print_flush("there are {0} pixels take into account and ama is {1}".format(l, ama))
     m = len(colors[0])
+    print_flush("m = ", m)
     array = bytearray(l*3 + 4 + ceil((l*3 + 4)/7))
     array[VERSION] = SOFT_VERSION
     array[TYPE] = COLOR
@@ -122,26 +123,65 @@ def msg_color(colors, ama= 1):
     array[DATA] = Mesh.sequence // 256
     array[DATA+1] = Mesh.sequence % 256
     print_flush(colors)
-    for val in Mesh.pixels.values():
+    for val in Mesh.pixels.values():#Concat avec Listen.unk?
         ((i,j), ind) = val
-        #print_flush(val, ama)
-        if ( i != -1 and j != -1):
-            if (ama == 0 ) :
-                (r,v,b) = colors[int(ind/m)][ind % m]
-            else :
-                (r,v,b) = colors[i][j]
-                #print_flush(r, v, b)
-        else:
+        print_flush("val =", val, "ama = ", ama)
+        if (ama == 0) :#La matrice est un tabular
+            print_flush("On passe dans ama == 0", colors[int(ind/m)][int(ind % m)])
+            print_flush("indice : ", int(ind/m), ",", ind % m)
+            print_flush("type de colors :", type(colors))
+            r = colors[int(ind/m)][int(ind % m)][0]
+            v = colors[int(ind/m)][int(ind % m)][1]
+            b = colors[int(ind/m)][int(ind % m)][2]
+            print_flush("nan mais tout va bien en fait")
+        elif ( i != -1 and j != -1): #Il y a un champ color
+            print_flush("On passe dans i == j == -1")
+            print_flush(i, j, len(colors), len(colors[0]))
+            r = colors[i][j][0]
+            v = colors[i][j][1]
+            b = colors[i][j][2]
+            #print_flush(r, v, b)
+        else: # Valeur inconnue et/ou ininterressante
+            print_flush("On passe dans pixel à 0")
             r= v= b= 0
+        print_flush("le pixel {0} {1} (indice {5}) recoit la couleur ({2}, {3}, {4})".format(i,j,r,v,b, ind))
         array[DATA + 2 + ind*3] = min(255, max(0, int(r*255)))
         array[DATA + 3 + ind*3] = min(255, max(0, int(v*255)))
         array[DATA + 4 + ind*3] = min(255, max(0, int(b*255)))
-    for val in Listen.deco.values():
+    print_flush(array)
+    for val in Listen.deco.values():#R.a.C =>
         ((i,j), ind) = val
         r= v= b= 0
         array[DATA + 2 + ind*3] = min(255, max(0, int(r*255)))
         array[DATA + 3 + ind*3] = min(255, max(0, int(v*255)))
         array[DATA + 4 + ind*3] = min(255, max(0, int(b*255)))
+    if (Mesh.ama == 1) :
+        #en plein adressage
+        for val in Listen.unk.values():#Concat avec Listen.unk?
+            ((i,j), ind) = val
+            # print_flush("val =", val, "ama = ", ama)
+            if (ama == 0) :#La matrice est un tabular
+                # print_flush("On passe dans ama == 0", colors[int(ind/m)][int(ind % m)])
+                # print_flush("indice : ", int(ind/m), ",", ind % m)
+                # print_flush("type de colors :", type(colors))
+                r = colors[int(ind/m)][int(ind % m)][0]
+                v = colors[int(ind/m)][int(ind % m)][1]
+                b = colors[int(ind/m)][int(ind % m)][2]
+                # print_flush("nan mais tout va bien en fait")
+            elif ( i != -1 and j != -1): #Il y a un champ color
+                # print_flush("On passe dans i == j == -1")
+                # print_flush(i, j, len(colors), len(colors[0]))
+                r = colors[i][j][0]
+                v = colors[i][j][1]
+                b = colors[i][j][2]
+                #print_flush(r, v, b)
+            else: # Valeur inconnue et/ou ininterressante
+                # print_flush("On passe dans pixel à 0")
+                r= v= b= 0
+            # print_flush("le pixel {0} {1} (indice {5}) recoit la couleur ({2}, {3}, {4})".format(i,j,r,v,b, ind))
+            array[DATA + 2 + ind*3] = min(255, max(0, int(r*255)))
+            array[DATA + 3 + ind*3] = min(255, max(0, int(v*255)))
+            array[DATA + 4 + ind*3] = min(255, max(0, int(b*255)))
     print_flush(array)
     crc_get(array)
     print_flush(array)
@@ -271,12 +311,15 @@ class Mesh(Thread):
         #Get the new pixel addressed positions
         print_flush(Mesh.pixels)
         tmp = Websock.get_pixels()
-        print_flush("tmp : {0}".format(tmp))
         if tmp != None and tmp != {} :
-            print_flush("tmp : {0}".format(tmp))
+            print_flush("tmp (pixels) : {0}".format(tmp))
             Mesh.pixels = json.loads(tmp)
         print_flush(Mesh.pixels)
-        #Listen.unk = json.loads(Websock.get_pos_unk())
+        tmp = json.loads(Websock.get_pos_unk())
+        if tmp != None :
+            print_flush("tmp (pos_unk) : {0}".format(tmp))
+            Listen.unk = tmp
+            print_flush("Le websocket deconne encoe!!!!")
         #Get the Frame format to check
         tmp = Websock.get_ama_model()
         if tmp != None:
@@ -294,7 +337,8 @@ class Mesh(Thread):
             Mesh.change_esp_state = True
         else :
             Mesh.change_esp_state = False
-        time.sleep(0.1)
+        time.sleep(0.05)
+        print_flush(self.model)
         self.p += 1
         print_flush("{2} : on m'a demandé de changer d'état : {0} ({1})".format(Mesh.change_esp_state, tmp, self.p))
         if Mesh.change_esp_state :
@@ -360,12 +404,12 @@ class Mesh(Thread):
                     print_flush("BEACON : %d-%d-%d-%d-%d-%d" % (int(data[DATA]), int(data[DATA+1]), int(data[DATA+2]), int(data[DATA+3]), int(data[DATA+4]), int(data[DATA+5])))
                     mac = array_to_mac(data[DATA:DATA+6])
                     print_flush(mac)
-                    if Mesh.pixels.get(mac) != None :
+                    if Listen.unk.get(mac) != None :
                         print_flush("already got the pixel " + mac)
                         continue
-                    Mesh.pixels[mac]=((-1,-1), Mesh.comp)
+                    Listen.unk[mac]=((-1,-1), Mesh.comp)
                     # Mesh.pixels[mac]=((-1,-1), self.comp)
-                    Websock.send_pos_unk(Mesh.pixels)
+                    Websock.send_pos_unk(Listen.unk)
                     array = msg_install(data, Mesh.comp)
                     Mesh.comp += 1
                     self.mesh_conn.send(array)

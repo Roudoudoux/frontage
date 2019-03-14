@@ -90,8 +90,8 @@ class Websock(Thread):
     @staticmethod
     def get_pos_unk():
         data = redis_get(POS_UNK, None)
-        if data:
-            redis.set(POS_UNK, 'None')
+        # if data:
+        #     redis.set(POS_UNK, 'None')
         if data == 'None':
             return None
         return data
@@ -99,8 +99,8 @@ class Websock(Thread):
     @staticmethod
     def get_pixels():
         data = redis_get(PIXELS, None)
-        if data:
-            redis.set(PIXELS, 'None')
+        # if data:
+        #     redis.set(PIXELS, 'None')
         if data == 'None':
             return None
         return data
