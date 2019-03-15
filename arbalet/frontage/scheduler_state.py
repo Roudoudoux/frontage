@@ -71,6 +71,14 @@ class SchedulerState(object):
         session.close()
         return amount
 
+    @staticmethod
+    def get_initialised():
+        session = session_factory()
+        initialised = session.query(DimensionsModel).first().initialised
+        session.close()
+        return initialised
+
+
 
     @staticmethod
     def set_rows(value):
@@ -95,6 +103,15 @@ class SchedulerState(object):
         conf.amount = value
         session.commit()
         session.close()
+
+    @staticmethod
+    def set_initialised(value):
+        session = session_factory()
+        conf = session.query(DimensionsModel).first()
+        conf.initialised = value
+        session.commit()
+        session.close()
+
 
     @staticmethod
     def add_cell(x, y, mac_address, ind):

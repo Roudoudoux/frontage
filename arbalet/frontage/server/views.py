@@ -404,3 +404,26 @@ def confirm_pixel_position(user):
 
     print_flush("confirmed")
     return jsonify(success='true')
+
+
+
+@blueprint.route('/b/admin/settings/mesh/initialised', methods=['GET'])
+@authentication_required
+def get_initialised(user):
+    if not is_admin(user):
+        abort(403, "Forbidden Bru")
+
+    return jsonify(initialised=SchedulerState.get_initialised())
+
+@blueprint.route('/b/admin/settings/mesh/initialised', methods=['POST'])
+@authentication_required
+def set_initialised(user):
+    if not is_admin(user):
+        abort(403, "Forbidden Bru")
+
+    body = request.get_json()
+    if 'initialised' not in body:
+        abort(415, 'Missing initialised value')
+
+    SchedulerState.set_initialised(body['initialised'])
+    return jsonify(initialised=SchedulerState.get_initialised())
