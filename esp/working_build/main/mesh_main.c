@@ -45,6 +45,7 @@ bool is_server_connected = false;
 //struct node route_table[CONFIG_MESH_ROUTE_TABLE_SIZE];
 int route_table_size = 0;
 //static int num[CONFIG_MESH_ROUTE_TABLE_SIZE];
+unsigned int ctr = 0;
 
 /*******************************************************
  *                Function Declarations
@@ -208,6 +209,24 @@ void blink_task(void *pvParameter)
     }
 }
 
+void dummy_task(void *pvParameter)
+{
+    while(1) {
+	ctr++;
+	vTaskDelay(10);
+    }
+}
+
+void CPU_load(void * pvParameter)
+{
+    while(1) {
+	unsigned int cycles = ctr;
+	ESP_LOGI(MESH_TAG, "CPU LOAD = %d \n", (int)(((float)cycles/100)*100));
+	ctr = 0;
+	vTaskDelay(1000/portTICK_PERIOD_MS);
+    }
+}
+
 /**
  * @brief Initialise the Task of the card
  */
@@ -219,6 +238,8 @@ esp_err_t esp_mesh_comm_p2p_start(void)
 	xTaskCreate(mesh_reception, "ESPRX", 3072, NULL, 5, NULL);
 	xTaskCreate(esp_mesh_state_machine, "STMC", 3072, NULL, 5, NULL);
 	xTaskCreate(blink_task, "blink_task", 3072, NULL, 5, NULL);
+	xTaskCreate(CPU_load, "CPUT", 64*configMINIMAL_STACK_SIZE, NULL, 5, NULL);
+	xTaskCreate(dummy_task, "DMYT", configMINIMAL_STACK_SIZE, NULL, 0, NULL);
     }
     return ESP_OK;
 }
