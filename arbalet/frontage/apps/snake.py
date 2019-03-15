@@ -19,6 +19,7 @@ from apps.fap import Fap
 from apps.actions import Actions
 from utils.tools import Rate
 from utils.colors import name_to_rgb
+from server.flaskutils import print_flush
 
 # from arbalet.core import Application, Rate
 # import pygame
@@ -44,6 +45,7 @@ class Snake(Fap):
                             'food': 3}
 
         Fap.__init__(self, username, userid)
+        print_flush("Init of SNAKE", self.model.height, self.model.width)
 
         self.DIRECTION = DOWN
         self.HEAD = (2, 2)
@@ -131,4 +133,3 @@ class Snake(Fap):
                     self.queue.append(new_pos)
                     self.send_model()
                     rate.sleep()
-

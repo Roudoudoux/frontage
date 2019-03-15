@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 """
-
 Presentation
-
 """
 
 import time
@@ -171,6 +169,7 @@ class Ama(Fap) :
             print_flush(SchedulerState.get_pixels_dic())
             self.model.set_all('black')
             self.send_model()
+            SchedulerState.set_initialised(1);#Last operation, indicate that addressing is over.
             while True:
                 print_flush("Addressing is over...")
                 time.sleep(0.05)

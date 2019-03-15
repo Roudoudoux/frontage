@@ -146,19 +146,19 @@ void esp_mesh_state_machine(void * arg) {
 	    break;
 	case CONF :
 	    state_conf();
-	    vTaskDelay(10 / portTICK_PERIOD_MS);
+	    vTaskDelay(1 / portTICK_PERIOD_MS);
 	    break;
 	case ADDR :
 	    state_addr();
-	    vTaskDelay(10 / portTICK_PERIOD_MS);
+	    vTaskDelay(1 / portTICK_PERIOD_MS);
 	    break;
 	case COLOR :
 	    state_color();
-	    vTaskDelay(10 / portTICK_PERIOD_MS);
+	    vTaskDelay(1 / portTICK_PERIOD_MS);
 	    break;
 	case ERROR_S :
 	    state_error();
-	    vTaskDelay(10 / portTICK_PERIOD_MS);
+	    vTaskDelay(1 / portTICK_PERIOD_MS);
 	    break;
 	default :
 	    ESP_LOGE(MESH_TAG, "ESP entered unknown state %d", state);
