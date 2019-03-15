@@ -20,6 +20,7 @@ from scheduler_state import SchedulerState
 from db.models import FappModel
 from db.base import session_factory
 from json import dumps
+from server.flaskutils import print_flush
 
 class Drawing(Fap):
     PLAYABLE = True
@@ -27,6 +28,7 @@ class Drawing(Fap):
     def __init__(self, username, userid):
         self.rate = Rate(10)
         Fap.__init__(self, username, userid)
+        print_flush("Init of DRAWING", self.model.height, self.model.width)
 
     def handle_message(self, json_data, path=None): # noqa
         if json_data is None:
@@ -75,4 +77,3 @@ class Drawing(Fap):
                     self.set_default_drawing()
                 self.send_model()
                 self.rate.sleep()
-
