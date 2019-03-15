@@ -15,21 +15,13 @@ from server.flaskutils import print_flush
 
 import struct
 
-def get_ip_address(ifname):
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    return socket.inet_ntoa(fcntl.ioctl(
-        s.fileno(),
-        0x8915,  # SIOCGIFADDR
-        struct.pack('256s', bytes(ifname[:15], 'utf-8'))
-    )[20:24])
-
-
 # CONSTANTS
 
 # Connection
-HOST='0.0.0.0'#str(get_ip_address('eth0'))
-#HOST='10.0.0.1'
+HOST='0.0.0.0'
 PORT=9988
+
+#Software version
 SOFT_VERSION = 1
 
 #Frame's type
@@ -44,20 +36,19 @@ AMA_COLOR = 62
 ERROR_CO = 71
 ERROR_DECO = 72
 ERROR_GOTO = 73
-SLEEP_SERVER = 81
-SLEEP_MESH = 82
-SLEEP_WAKEUP = 89
 
 #Field
-
 VERSION = 0
 TYPE = 1
 DATA = 2
 FRAME_SIZE = 16
 
-# state
-
+#States
+STATE_INIT = 1
 STATE_CONF = 2
+STATE_ADDR = 3
+STATE_COLOR = 4
+STATE_ERROR = 5
 
 
 def mac_to_array(mac, array, offset):
@@ -85,12 +76,11 @@ def msg_install(data, comp):
     return array
 
 
-def msg_install_from_mac(data, num):
+def msg_install_from_mac(mac, num):
     array = bytearray(16)
     array[VERSION] = SOFT_VERSION
     array[TYPE] = INSTALL
-    for j in range (DATA, DATA+1) :
-        array[j] = data[j-DATA]
+    mac_to_array(mac, array, DATA )
     array[DATA+6] = num
     crc_get(array)
     return array
@@ -103,12 +93,13 @@ def msg_ama(amatype):
     crc_get(array)
     return array
 
-def msg_readressage():#Check why no mac
+def msg_readressage(mac, state=STATE_COLOR):#Check why no mac
     array = bytearray(16)
     array[VERSION] = SOFT_VERSION
     array[TYPE] = ERROR
     array[DATA] = ERROR_GOTO
-    array[DATA+1] = STATE_CONF
+    array[DATA+1] = state
+    mac_to_array(mac, array, DATA+2)
     return array
 
 def msg_color(colors, ama= 1):
@@ -127,20 +118,17 @@ def msg_color(colors, ama= 1):
         ((i,j), ind) = val
         print_flush("val =", val, "ama = ", ama)
         if (ama == 0) :#La matrice est un tabular
-            print_flush("On passe dans ama == 0", colors[int(ind/m)][int(ind % m)])
-            print_flush("indice : ", int(ind/m), ",", ind % m)
-            print_flush("type de colors :", type(colors))
+            # print_flush("On passe dans ama == 0", colors[int(ind/m)][int(ind % m)])
+            # print_flush("indice : ", int(ind/m), ",", ind % m)
+            # print_flush("type de colors :", type(colors))
             r = colors[int(ind/m)][int(ind % m)][0]
             v = colors[int(ind/m)][int(ind % m)][1]
             b = colors[int(ind/m)][int(ind % m)][2]
             print_flush("nan mais tout va bien en fait")
         elif ( i != -1 and j != -1): #Il y a un champ color
-            print_flush("On passe dans i == j == -1")
-            print_flush(i, j, len(colors), len(colors[0]))
             r = colors[i][j][0]
             v = colors[i][j][1]
             b = colors[i][j][2]
-            #print_flush(r, v, b)
         else: # Valeur inconnue et/ou ininterressante
             print_flush("On passe dans pixel à 0")
             r= v= b= 0
@@ -159,26 +147,16 @@ def msg_color(colors, ama= 1):
         #en plein adressage
         for val in Listen.unk.values():#Concat avec Listen.unk?
             ((i,j), ind) = val
-            # print_flush("val =", val, "ama = ", ama)
             if (ama == 0) :#La matrice est un tabular
-                # print_flush("On passe dans ama == 0", colors[int(ind/m)][int(ind % m)])
-                # print_flush("indice : ", int(ind/m), ",", ind % m)
-                # print_flush("type de colors :", type(colors))
                 r = colors[int(ind/m)][int(ind % m)][0]
                 v = colors[int(ind/m)][int(ind % m)][1]
                 b = colors[int(ind/m)][int(ind % m)][2]
-                # print_flush("nan mais tout va bien en fait")
             elif ( i != -1 and j != -1): #Il y a un champ color
-                # print_flush("On passe dans i == j == -1")
-                # print_flush(i, j, len(colors), len(colors[0]))
                 r = colors[i][j][0]
                 v = colors[i][j][1]
                 b = colors[i][j][2]
-                #print_flush(r, v, b)
             else: # Valeur inconnue et/ou ininterressante
-                # print_flush("On passe dans pixel à 0")
                 r= v= b= 0
-            # print_flush("le pixel {0} {1} (indice {5}) recoit la couleur ({2}, {3}, {4})".format(i,j,r,v,b, ind))
             array[DATA + 2 + ind*3] = min(255, max(0, int(r*255)))
             array[DATA + 3 + ind*3] = min(255, max(0, int(v*255)))
             array[DATA + 4 + ind*3] = min(255, max(0, int(b*255)))
@@ -188,29 +166,28 @@ def msg_color(colors, ama= 1):
     return array
 
 class Listen(Thread) :
-    deco = {}
-    unk = {}
+    deco = {} # matrix of pixels addressed but lost, deconnected
+    unk = {} # matrix of new pixels which do not have positions
 
     def __init__(self, com) :
-        print_flush("Listen init")
+        # print_flush("Listen init")
         Thread.__init__(self)
         self.com = com
         self.allowed = False
-        print_flush("Listen fin init")
+        self.count = 0
+        # print_flush("Listen fin init")
 
     def run(self) :
-        print_flush("Listen start")
+        # print_flush("Listen start")
         while True:
             if self.allowed :
                 self.listen()
 
     def listen(self) :
         data = ""
-        try :
-            print_flush("Listening...")
-            data = self.com.conn.recv(1500)
-        except :
-            pass
+        self.count += 1
+        print_flush("{0} Listening...".format(self.count))
+        data = self.com.mesh_conn.recv(1500)
         if (data != "" and crc_check(data[0:16])) :
             #ajout message sur sentry
             if (data[TYPE] == ERROR) :
@@ -223,39 +200,43 @@ class Listen(Thread) :
                     array[j] = data[j]
                 #Setting flags...
                 mac = array_to_mac(data[DATA+2 : DATA +8])
+                print_flush("Pixel {0} has encountered a problem".format(mac))
                 if data[DATA] == ERROR_DECO :
                     Listen.deco[mac] = Mesh.pixels.pop(mac)
-                    print_flush(Listen.deco)
+                    print_flush("Add pixel {0} to Listen.deco : {1}".format(mac, Listen.deco))
                 elif data[DATA] == ERROR_CO :
-                    print_flush("known address : %s" % ('y' if mac in Listen.deco.keys() else 'n') )
-                    if mac not in Listen.deco : # Raising UNK flag
+                    if mac in Listen.deco :
+                        print_flush("Address is in Listen.deco")
+                        Mesh.pixels[mac] = Listen.deco.pop(mac)
+                    elif mac in Mesh.pixels :
+                        print_flush("Address is in Mesh.pixels" )
+                    else : # Raising UNK flag
                         Listen.unk[mac] = ((-1, -1),-1)
                         Websock.send_pos_unk(Listen.unk)
                         array[DATA+1] = array[DATA+1] | 32
-                    else :
-                        Mesh.pixels[mac] = Listen.deco.pop(mac)
                 else :
                     print_flush("WTF????")
                 print_flush("Received message, acquitting it", data)
-                print_flush(Listen.deco, Listen.unk)
+                print_flush("Updates  Listen.deco {0} \n Updates Listen.unk {1}".format(Listen.deco, Listen.unk))
                 array[DATA+1] = array[DATA+1] | 128
                 crc_get(array)
-                print_flush(array)
-                self.com.conn.send(array)
+                # print_flush(array)
+                self.com.mesh_conn.send(array)
                 print_flush("acquitted")
             else :
                 print_flush("received unintersting message...")
 
 class Mesh(Thread):
-    socket
-    addressed = False
-    change_esp_state = False
-    ama = 0
-    rows = 0
-    cols = 0
-    comp = 0
-    pixels = {}
-    sequence = 0
+    socket = None #socket bind to mesh network through AP
+    mac_root = '' #esp32 root mac address
+    addressed = False #True if the pixels are already related to a position (x,y)
+    change_esp_state = False #Order from ama.py to shift ESP in other state
+    ama = 0 #fluctuates between 0 and 3 : 0 => NEVER_addressed; 1 => AMA_INIT; 2 => AMA_COLOR; 3 => RAC
+    rows = 0 #matrix height
+    cols = 0 # matrix width
+    comp = 0 # pixel amount
+    pixels = {} # dictionnary of pixel, position (x,y) and i
+    sequence = 0 # sequence number of the COLOR frame
 
     def __init__(self, conn, addr):
         Thread.__init__(self)
@@ -276,35 +257,35 @@ class Mesh(Thread):
         self.params = pika.ConnectionParameters(host='rabbit', credentials=credentials, heartbeat = 0)
 
     def ama_model(self) :
-        print_flush("entering ama_model")
+        # print_flush("entering ama_model")
         i = self.model.get_height()-1
         if (self.ama_check == 0): #this part fonctionne
-            print_flush("entering kind 0 :")
+            # print_flush("entering kind 0 :")
             while(i >= 0) :
                 j = self.model.get_width()-1
                 while (j >= 0 ) :
                     tmp = self.model.get_pixel(i,j)
-                    print_flush("pixels {0} {1} : {2}".format(i,j,tmp))
+                    # print_flush("pixels {0} {1} : {2}".format(i,j,tmp))
                     if ( (tmp[0]+tmp[1]+tmp[2]) == -3):
-                        print_flush("quiting ama_model True 0")
+                        # print_flush("quiting ama_model True 0")
                         return True
                     j -= 1
                 i -= 1
-            print_flush("quiting ama_model False 0")
+            # print_flush("quiting ama_model False 0")
             return False
         elif (self.ama_check == 1): #not tested
-            print_flush("entering kind 1 :")
+            # print_flush("entering kind 1 :")
             while(i >= 0) :
                 j = self.model.get_width()-1
                 while (j >= 0 ) :
                     tmp = self.model.get_pixel(i,j)
-                    print_flush("pixels {0} {1} : {2}".format(i,j,tmp))
+                    # print_flush("pixels {0} {1} : {2}".format(i,j,tmp))
                     if (( (tmp[0]+tmp[1]+tmp[2]) != 0) and (tmp[0] != 1 and tmp[1]+tmp[2] != 0) and (tmp[1] != 1 and tmp[0]+tmp[2] != 0)):
-                        print_flush("quiting ama_model False 1")
+                        # print_flush("quiting ama_model False 1")
                         return False
                     j -= 1
                 i -= 1
-                print_flush("quiting ama_model True 1")
+                # print_flush("quiting ama_model True 1")
                 return True
 
     def ama_care(self):
@@ -323,7 +304,7 @@ class Mesh(Thread):
         #Get the Frame format to check
         tmp = Websock.get_ama_model()
         if tmp != None:
-            self.ama_check = eval(tmp)['ama'] ####################################### BLOQUE ICI Ligne begguée (je ne sais pas pk)
+            self.ama_check = eval(tmp)['ama']
         print_flush("on passe à ama_model")
         if self.ama_model():
             array = msg_color(self.model._model, self.ama_check)
@@ -338,9 +319,9 @@ class Mesh(Thread):
         else :
             Mesh.change_esp_state = False
         time.sleep(0.05)
-        print_flush(self.model)
+        # print_flush(self.model)
         self.p += 1
-        print_flush("{2} : on m'a demandé de changer d'état : {0} ({1})".format(Mesh.change_esp_state, tmp, self.p))
+        # print_flush("{2} : on m'a demandé de changer d'état : {0} ({1})".format(Mesh.change_esp_state, tmp, self.p))
         if Mesh.change_esp_state :
             Mesh.ama += 1
             if Mesh.ama == 1 :
@@ -356,12 +337,12 @@ class Mesh(Thread):
                 array = msg_ama(AMA_COLOR)
                 self.mesh_conn.send(array)
                 print_flush("FIN Mesh.ama = 2")
-            else :
+            else : # RaC ==========================> TO CHECK
                 print_flush("DEBUT Mesh.ama = 3")
                 Mesh.ama = 1
                 Mesh.addressed = False
                 Websock.send_pos_unk(Listen.unk)
-                array = msg_readressage()
+                array = msg_readressage(Mesh.mac_root,STATE_ADDR)
                 self.mesh_conn.send(array)
                 print_flush("FIN Mesh.ama = 3")
         elif (Mesh.ama == 1) :
@@ -369,18 +350,29 @@ class Mesh(Thread):
             self.ama_care()
         elif (Mesh.addressed) :
             array = msg_color(self.model._model)
-            #print_flush("(%d, %d, %d)" % (int(array[DATA+2]), int(array[DATA+3]), int(array[DATA+4])))
             self.mesh_conn.send(array)
-            #print_flush("Send colors")
         else :
             print_flush("it is not the time to send colors")
 
-    def send_table(self):
-        pass
-        #TODO
+    def send_table(self): #pb : récupérer l'adresse de la nouvelle root
+        #passe la nouvelle root en state_conf
+        array = msg_readressage(Mesh.mac_root, STATE_CONF)#comment trouver l'adresse mac de la nouvelle root ????
+        self.mesh_conn.send(array)
+        time.sleep(0.1)
+        #envoie de trames install
+        for val in Mesh.pixels :
+            (mac, ((i,j), ind)) = val
+            array = msg_install_from_mac(Mesh.mac_root, ind)
+            self.mesh_conn.send(array)
+            time.sleep(0.1)
+        #passe en AMA_INIT puis en AMA_COLOR
+        array = msg_ama(AMA_INIT)
+        self.mesh_conn.send(array)
+        time.sleep(0.05)
+        array = msg_ama(AMA_COLOR)
+        self.mesh_conn.send(array)
 
-
-    def print_mesh_info(self):
+    def print_mesh_info(self): #dummy print
         print_flush(" ========== Mesh ==========")
         print_flush("-------- Is mesh initialized :")
         print_flush(Mesh.addressed)
@@ -389,36 +381,40 @@ class Mesh(Thread):
         print_flush("-------- Pixels?")
         print_flush(Mesh.pixels)
 
-    def get_mac(self) :
+    def get_mac(self) :#changer la methode pour ne pas attendre un nombre défini de pixel
         data = "a"
         while (Mesh.comp != 2):#HARDCODE
             try :
                 print_flush("on attend des données")
                 data = self.mesh_conn.recv(1500)
-                print_flush("on a reçu des données")
+                # print_flush("on a reçu des données")
             except :
-                print_flush(data)
+                # print_flush(data)
                 pass
             if (data != "a" and crc_check(data[0:16])) :
                 if data[TYPE] == BEACON :
                     print_flush("BEACON : %d-%d-%d-%d-%d-%d" % (int(data[DATA]), int(data[DATA+1]), int(data[DATA+2]), int(data[DATA+3]), int(data[DATA+4]), int(data[DATA+5])))
                     mac = array_to_mac(data[DATA:DATA+6])
-                    print_flush(mac)
+                    print_flush("le pixel ayant l'adresse {0} se déclare".format(mac))
+                    if (self.comp == 0):
+                        Mesh.mac_root= mac
                     if Listen.unk.get(mac) != None :
-                        print_flush("already got the pixel " + mac)
+                        print_flush("But it has already be declared ")
                         continue
                     Listen.unk[mac]=((-1,-1), Mesh.comp)
-                    # Mesh.pixels[mac]=((-1,-1), self.comp)
+                    #####################################################
+                    # Mesh.pixels[mac]=((self.comp,self.comp), self.comp) #TEMPORAIRE
+                    #####################################################
                     Websock.send_pos_unk(Listen.unk)
                     array = msg_install(data, Mesh.comp)
                     Mesh.comp += 1
                     self.mesh_conn.send(array)
-                    #time.sleep(1)
                 else :
                     print_flush("A message was recieved but it is not a BEACON")
             elif data != "a" :
                 print_flush("Empty message or invalid CRC", data)
-        print_flush("end of get_mac function")
+        print_flush("end of get_mac function found {0} pixels".format(self.comp))
+        self.l.allowed = True
 
     def run(self):
         try:
@@ -435,6 +431,7 @@ class Mesh(Thread):
             print_flush('Waiting for pixel data on queue "{}".'.format(queue_name))
 
             #TEMPORAIRE
+            # Mesh.addressed = True
             # array = msg_ama(AMA_INIT)
             # self.mesh_conn.send(array)
             # array = msg_ama(AMA_COLOR)
@@ -478,13 +475,15 @@ def main() :
         print_flush("Socket opened, waiting for connection...")
         while True :
             conn, addr = Mesh.socket.accept()
-            print_flush("Connection accepted")
+            print_flush("Connection accepted with {0}".format(addr))
             if (socket_thread != None) :
                 socket_thread.close_socket()
             socket_thread = Mesh(conn, addr)
             socket_thread.print_mesh_info()
             if (not Mesh.addressed):
-                socket_thread.get_mac() # Ajouter un envoie de trmae vide lorsque la route à finie de remplir l=sa table de routage logique
+                socket_thread.get_mac()
+            else :
+                socket_thread.send_table() #ne semble pas être pris en compte lors d'un pb de la root
             socket_thread.run()
 
 if __name__ == '__main__' :

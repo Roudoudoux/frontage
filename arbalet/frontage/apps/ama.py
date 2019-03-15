@@ -62,7 +62,9 @@ class Ama(Fap) :
         def matriceR(self, ind, iteration) :
             print_flush("entrée dans matriceR........................................")
             self.model.set_all(array((-1,-1,-1)))
-            for i in range(iteration) :
+            for i in [val[1] for val in self.pixels.values()] :
+                if i == -1 :
+                    continue
                 x = int(i / self.cols)
                 y = i % self.cols
                 self.model.set_pixel(x, y, name_to_rgb('lime'))
@@ -114,7 +116,7 @@ class Ama(Fap) :
             # self.send_model()
             print_flush("Je suis avant la boucle ..................................................................;")
             #Start the AMA procedure
-            iteration = 0
+            iteration = 1
             while (len(self.pos_unknown) != 0) :
                 #AMA shall continue as long as there are pixels without known position
                 if self.action == 1 :
@@ -124,6 +126,7 @@ class Ama(Fap) :
                 else :
                     #the previous position was hill initialize
                     self.pixels.pop(mac)
+                    self.pos_unknown.pop(mac)
                 self.matriceR(ind, iteration)
                 Websock.send_ama_model(0)
                 print_flush(self.model)
@@ -150,15 +153,18 @@ class Ama(Fap) :
                     #administrator ensures the rightfullness of the coordonate
                     iteration += 1
                 else : # the pixel is reput in the pos_unknown dictionary as its position is false
-                        # self.pos_unknown[mac] = ((x,y), ind)
-                        #Start the up right verification
+                        self.pos_unknown[mac] = ((x,y), ind)
+                        #it is a must because without it we could pass the while condition
                         pass
                 print_flush("WE DID IT!!!!!! One lap completed!!!!!!!!!")
             for i in range(self.rows) :
                 for j in range(self.cols) :
                     self.model.set_pixel(i, j, name_to_rgb('red'))
-                    self.send_model()
-                    time.sleep(0.1)
+                    waiting = 0
+                    while waiting < 10 :
+                        self.send_model()
+                        time.sleep(0.1)
+                        waiting += 1
             self.update_DB() #publish on REDIS and save in DB the new pixels dictionary
             #Tels mesh.py to shift in COLOR mod
             Websock.send_esp_state('COLOR')
