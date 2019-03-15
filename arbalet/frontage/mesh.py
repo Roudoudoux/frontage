@@ -50,7 +50,7 @@ STATE_ADDR = 3
 STATE_COLOR = 4
 STATE_ERROR = 5
 
-
+# '12:123:12:43:34'
 def mac_to_array(mac, array, offset):
     i = j = 0
     while ( len(mac) != 0):
@@ -80,7 +80,9 @@ def msg_install_from_mac(mac, num):
     array = bytearray(16)
     array[VERSION] = SOFT_VERSION
     array[TYPE] = INSTALL
+    print_flush("Before mac")
     mac_to_array(mac, array, DATA )
+    print_flush("After mac")
     array[DATA+6] = num
     crc_get(array)
     return array
@@ -100,6 +102,7 @@ def msg_readressage(mac, state=STATE_COLOR):#Check why no mac
     array[DATA] = ERROR_GOTO
     array[DATA+1] = state
     mac_to_array(mac, array, DATA+2)
+    crc_get(array)
     return array
 
 def msg_color(colors, ama= 1):
@@ -361,16 +364,19 @@ class Mesh(Thread):
         time.sleep(0.1)
         #envoie de trames install
         for val in Mesh.pixels :
-            (mac, ((i,j), ind)) = val
-            array = msg_install_from_mac(Mesh.mac_root, ind)
+            ((i,j), ind) = Mesh.pixels.get(val)
+            print_flush("on envoie INSTALL pour {}".format(ind))
+            array = msg_install_from_mac(val, ind)
+            print_flush("voici l'array {}".format(array))
             self.mesh_conn.send(array)
             time.sleep(0.1)
         #passe en AMA_INIT puis en AMA_COLOR
         array = msg_ama(AMA_INIT)
         self.mesh_conn.send(array)
-        time.sleep(0.05)
+        time.sleep(0.1)
         array = msg_ama(AMA_COLOR)
         self.mesh_conn.send(array)
+        print_flush("on a fini l'envoie de la table")
 
     def print_mesh_info(self): #dummy print
         print_flush(" ========== Mesh ==========")
@@ -403,7 +409,7 @@ class Mesh(Thread):
                         continue
                     Listen.unk[mac]=((-1,-1), Mesh.comp)
                     #####################################################
-                    # Mesh.pixels[mac]=((self.comp,self.comp), self.comp) #TEMPORAIRE
+                    Mesh.pixels[mac]=((self.comp,self.comp), self.comp) #TEMPORAIRE
                     #####################################################
                     Websock.send_pos_unk(Listen.unk)
                     array = msg_install(data, Mesh.comp)
@@ -431,12 +437,12 @@ class Mesh(Thread):
             print_flush('Waiting for pixel data on queue "{}".'.format(queue_name))
 
             #TEMPORAIRE
-            # Mesh.addressed = True
-            # array = msg_ama(AMA_INIT)
-            # self.mesh_conn.send(array)
-            # array = msg_ama(AMA_COLOR)
-            # self.mesh_conn.send(array)
-            # Mesh.ama = 2
+            Mesh.addressed = True
+            array = msg_ama(AMA_INIT)
+            self.mesh_conn.send(array)
+            array = msg_ama(AMA_COLOR)
+            self.mesh_conn.send(array)
+            Mesh.ama = 2
             #FIN TEMPORAIRE
 
             self.channel.start_consuming()
@@ -472,8 +478,8 @@ def main() :
             break
         print_flush(Mesh.socket)
         socket_thread = None
-        print_flush("Socket opened, waiting for connection...")
         while True :
+            print_flush("Socket opened, waiting for connection...")
             conn, addr = Mesh.socket.accept()
             print_flush("Connection accepted with {0}".format(addr))
             if (socket_thread != None) :
@@ -483,8 +489,9 @@ def main() :
             if (not Mesh.addressed):
                 socket_thread.get_mac()
             else :
+                print_flush("Envoie de la table de rootage à la nouvelle root")
                 socket_thread.send_table() #ne semble pas être pris en compte lors d'un pb de la root
-            socket_thread.run()
+            socket_thread.start()
 
 if __name__ == '__main__' :
     main()
