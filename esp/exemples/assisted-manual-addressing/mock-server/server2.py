@@ -13,7 +13,7 @@ from crc import *
 # Connection
 HOST='10.42.0.1'
 #HOST='10.0.0.1'
-PORT=8080
+PORT=9988
 SOFT_VERSION = 1
 
 #Frame's type
