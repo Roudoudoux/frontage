@@ -4,7 +4,7 @@
 #include "utils.h"
 #include "esp32_digital_led_lib.h"
 
-strand_t strand[1] = {{.rmtChannel = 1, .gpioNum = 16, .ledType = LED_WS2812B_V3, .brightLimit = 32, .numPixels =  20, .pixels = NULL, ._stateVars = NULL}};//Array is normal, pls don't edit
+strand_t strand[1] = {{.rmtChannel = 1, .gpioNum = 15, .ledType = LED_WS2812B_V3, .brightLimit = 32, .numPixels =  144, .pixels = NULL, ._stateVars = NULL}};//Array is normal, pls don't edit
 
 void gpioSetup(int gpioNum, int gpioMode, int gpioVal) {
   #if defined(ARDUINO) && ARDUINO >= 100
@@ -29,7 +29,7 @@ void display_color(uint8_t buf[FRAME_SIZE]) {
     uint8_t color[3];
     copy_buffer(color, buf+DATA+2, 3);
     for (uint16_t i = 0; i < pStrand->numPixels; i++) {
-	pStrand->pixels[i] = pixelFromRGB(color[0], color[1], color[2]);
+      pStrand->pixels[i] = pixelFromRGB(color[0], color[1], color[2]);
     }
     digitalLeds_updatePixels(pStrand);
     ESP_LOGI(MESH_TAG, "Diplay color triplet : (%d, %d, %d)", color[0], color[1], color[2]);

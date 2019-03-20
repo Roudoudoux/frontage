@@ -25,16 +25,16 @@ class Ama(Fap) :
         PLAYABLE = True
         ACTIVATED = True
 
-        def __init__(self, username, userid) :
+        def __init__(self, username, userid, ama) :
                 Fap.__init__(self, username, userid)
                 self.action = 1
                 self.rows = 0
                 self.cols = 0
                 self.coord = (-1,-1)
-                self.pixels = {'default' : ((-1,-1), -1)}
                 # self.pixels = SchedulerState.get_pixels_dic()
-                # if self.pixels == {} :
+                self.pixels = {'default' : ((-1,-1), -1) }
                 self.pos_unknown = {}
+                self.ama = ama
 
         #get information from frontage-frontend
         def handle_message(self, json_data, path=None) :
@@ -93,8 +93,8 @@ class Ama(Fap) :
 
         def update_DB(self) :
             self.pixels.pop('default')
-            Websock.send_pos_unk({})
             Websock.send_pixels(self.pixels)
+            Websock.send_pos_unk({})
             #Update DB
             while (len(self.pixels) != 0) :
                 (mac, ((x,y),ind)) = self.pixels.popitem()
@@ -105,18 +105,26 @@ class Ama(Fap) :
             # get necessary informations (may be shift in __init__ ?)
             self.rows = SchedulerState.get_rows()
             self.cols = SchedulerState.get_cols()
-            Websock.send_pixels({})
+            if (self.ama) : # adressage manuel assisté
+                # self.pos_unknown = loads(Websock.get_pixels())
+                Websock.send_pixels({})
+                self.pixels = {}
+            else : # réadressage à chaud
+                 self.pixels = loads(Websock.get_pixels())
+                 self.pixels['default'] = ((-1,-1), -1)
+                 # TODO : griser les pixels contenus dans self.pixels
+            # get the pixels to address
             self.pos_unknown = loads(Websock.get_pos_unk()) #Exemple {'@mac1' : ((x,j), 0), ...}}
             print_flush(self.pos_unknown) #dummy print
             #self.pos_unknown = {'12:58:78:74:56:94':((-1, -1), 0), '12:58:78:74:56:95':((-1, -1), 1), '12:58:78:74:56:96':((-1, -1), 2)}#Dummy            #Tels mesh.py to shift in AMA mod
             print_flush("je change l'etat des esp en ADDR..............................................................;;")
+            # put esp root in the right state
             Websock.send_esp_state('ADDR')
-            # self.send_model()
             print_flush("Je suis avant la boucle ..................................................................;")
-            #Start the AMA procedure
+            #Start the AMA/RaC procedure
             iteration = 1
             while (len(self.pos_unknown) != 0) :
-                #AMA shall continue as long as there are pixels without known position
+                #AMA/RaC shall continue as long as there are pixels without known position
                 if self.action == 1 :
                     #the previous pixel has its right position
                     (mac, ((x,y),ind)) = self.pos_unknown.popitem()

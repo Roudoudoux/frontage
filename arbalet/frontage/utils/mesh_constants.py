@@ -1,0 +1,33 @@
+
+# Connection
+HOST='0.0.0.0'
+PORT=9988
+
+#Software version
+SOFT_VERSION = 1
+
+#Frame's type
+BEACON = 1
+INSTALL = 3
+COLOR = 4
+AMA = 6
+ERROR = 7
+SLEEP = 8
+AMA_INIT = 61
+AMA_COLOR = 62
+ERROR_CO = 71
+ERROR_DECO = 72
+ERROR_GOTO = 73
+
+#Field
+VERSION = 0
+TYPE = 1
+DATA = 2
+FRAME_SIZE = 16
+
+#States
+STATE_INIT = 1
+STATE_CONF = 2
+STATE_ADDR = 3
+STATE_COLOR = 4
+STATE_ERROR = 5
