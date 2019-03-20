@@ -25,16 +25,18 @@ class DimensionsModel(Base):
     rows = Column(Integer)
     cols = Column(Integer)
     amount = Column(Integer)
+    initialised = Column(Integer)
 
     def __init__(self):
         self.uniqid = str(uuid4())
         self.rows = 4
         self.cols = 19
         self.amount = 1
+        self.initialised = 0
 
     def __repr__(self):
-        return '<dimensionsmodel %r (%r) (%r) (%r)>' % (
-            self.uniqid, self.rows, self.cols, self.amount)
+        return '<dimensionsmodel %r (%r) (%r) (%r) (%r)>' % (
+            self.uniqid, self.rows, self.cols, self.amount, self.initialised)
 
 class CellTableModel(Base):
     __tablename__ = 'celltablemodel'

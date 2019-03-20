@@ -303,7 +303,6 @@ class Mesh(Thread):
         if tmp != None :
             print_flush("tmp (pos_unk) : {0}".format(tmp))
             Listen.unk = tmp
-            print_flush("Le websocket deconne encoe!!!!")
         #Get the Frame format to check
         tmp = Websock.get_ama_model()
         if tmp != None:
@@ -317,11 +316,10 @@ class Mesh(Thread):
         b = body.decode('ascii')
         self.model.set_from_json(b)
         tmp = Websock.get_esp_state()
-        if tmp != 'None' :
+        if tmp != 'None' and tmp != None:
             Mesh.change_esp_state = True
         else :
             Mesh.change_esp_state = False
-        time.sleep(0.05)
         # print_flush(self.model)
         self.p += 1
         # print_flush("{2} : on m'a demandé de changer d'état : {0} ({1})".format(Mesh.change_esp_state, tmp, self.p))
@@ -389,7 +387,7 @@ class Mesh(Thread):
 
     def get_mac(self) :#changer la methode pour ne pas attendre un nombre défini de pixel
         data = "a"
-        while (Mesh.comp != 2):#HARDCODE
+        while (Mesh.comp != 6):#HARDCODE
             try :
                 print_flush("on attend des données")
                 data = self.mesh_conn.recv(1500)
@@ -436,14 +434,14 @@ class Mesh(Thread):
             self.print_mesh_info()
             print_flush('Waiting for pixel data on queue "{}".'.format(queue_name))
 
-            #TEMPORAIRE
-            Mesh.addressed = True
-            array = msg_ama(AMA_INIT)
-            self.mesh_conn.send(array)
-            array = msg_ama(AMA_COLOR)
-            self.mesh_conn.send(array)
-            Mesh.ama = 2
-            #FIN TEMPORAIRE
+            # #TEMPORAIRE
+            # Mesh.addressed = True
+            # array = msg_ama(AMA_INIT)
+            # self.mesh_conn.send(array)
+            # array = msg_ama(AMA_COLOR)
+            # self.mesh_conn.send(array)
+            # Mesh.ama = 2
+            # #FIN TEMPORAIRE
 
             self.channel.start_consuming()
         except Exception as e:

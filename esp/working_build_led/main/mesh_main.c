@@ -237,8 +237,8 @@ esp_err_t esp_mesh_comm_p2p_start(void)
 	xTaskCreate(mesh_reception, "ESPRX", 3072, NULL, 5, NULL);
 	xTaskCreate(esp_mesh_state_machine, "STMC", 3072, NULL, 5, NULL);
 	xTaskCreate(blink_task, "blink_task", 3072, NULL, 5, NULL);
-	xTaskCreate(CPU_load, "CPUT", 64*configMINIMAL_STACK_SIZE, NULL, 5, NULL);
-	xTaskCreate(dummy_task, "DMYT", configMINIMAL_STACK_SIZE, NULL, 0, NULL);
+	//xTaskCreate(CPU_load, "CPUT", 64*configMINIMAL_STACK_SIZE, NULL, 5, NULL);
+	//xTaskCreate(dummy_task, "DMYT", configMINIMAL_STACK_SIZE, NULL, 0, NULL);
     }
     return ESP_OK;
 }
@@ -481,4 +481,6 @@ void app_main(void)
     tcpServerAddr.sin_port = htons(9988);
     /* Strand Init (LED Ribbon) */
     init_leds();
+    uint8_t fake[FRAME_SIZE] = {0, 0, 0, 0, 255, 255, 255};
+    display_color(fake);
 }
