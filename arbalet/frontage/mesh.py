@@ -22,6 +22,7 @@ def msg_color(colors, ama= 1):
     l = Mesh.comp
     # print_flush("there are {0} pixels take into account and ama is {1}".format(l, ama))
     m = len(colors[0])
+    n = len(colors)
     # print_flush("m = ", m)
     array = bytearray(l*3 + 4 + ceil((l*3 + 4)/7))
     array[c.VERSION] = c.SOFT_VERSION
@@ -41,7 +42,7 @@ def msg_color(colors, ama= 1):
             v = colors[int(ind/m)][int(ind % m)][1]
             b = colors[int(ind/m)][int(ind % m)][2]
             # print_flush("nan mais tout va bien en fait")
-        elif ( i != -1 and j != -1 and i : #Il y a un champ color
+        elif ( i != -1 and j != -1 and i < n and j < m)  : #Il y a un champ color
             r = colors[i][j][0]
             v = colors[i][j][1]
             b = colors[i][j][2]
@@ -130,7 +131,9 @@ class Listen(Thread) :
                         Websock.send_pixels(Mesh.pixels)
                     elif mac in Mesh.pixels :
                         print_flush("Address is in Mesh.pixels" )
-                    else : # Raising UNK flag
+                    else :
+                        # Raising UNK flag
+                        Mesh.comp +=1
                         Listen.unk[mac] = ((-1, -1),-1) #pb, on ne peut pas mettre -1 en indice de tableau
                         Websock.send_pos_unk(Listen.unk)
                         array[c.DATA+1] = array[c.DATA+1] | 32
@@ -253,6 +256,8 @@ class Mesh(Thread):
             self.mesh_conn.send(array)
 
     def callback(self, ch, method, properties, body):
+        if Mesh.comp < len(Mesh.pixels):
+            return
         b = body.decode('ascii')
         self.model.set_from_json(b)
         tmp = Websock.get_esp_state()
@@ -262,7 +267,7 @@ class Mesh(Thread):
             Mesh.change_esp_state = False
         # print_flush(self.model)
         self.p += 1
-        # print_flush("{2} : on m'a demandé de changer d'état : {0} ({1})".format(Mesh.change_esp_state, tmp, self.p))
+        print_flush("{2} : on m'a demandé de changer d'état : {0} ({1})".format(Mesh.change_esp_state, tmp, self.p))
         if Mesh.change_esp_state :
             Mesh.ama += 1
             if Mesh.ama == 1 :
