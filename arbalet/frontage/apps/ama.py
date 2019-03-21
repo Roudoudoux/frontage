@@ -25,7 +25,7 @@ class Ama(Fap) :
         PLAYABLE = True
         ACTIVATED = True
 
-        def __init__(self, username, userid, ama) :
+        def __init__(self, username, userid, ama = True) :
                 Fap.__init__(self, username, userid)
                 self.action = 1
                 self.rows = 0
@@ -108,7 +108,7 @@ class Ama(Fap) :
             if (self.ama) : # adressage manuel assisté
                 # self.pos_unknown = loads(Websock.get_pixels())
                 Websock.send_pixels({})
-                self.pixels = {}
+                # self.pixels = {'default' : ((-1,-1); -1)}
             else : # réadressage à chaud
                  self.pixels = loads(Websock.get_pixels())
                  self.pixels['default'] = ((-1,-1), -1)

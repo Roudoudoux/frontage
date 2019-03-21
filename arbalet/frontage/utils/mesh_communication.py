@@ -40,7 +40,7 @@ def msg_install_from_mac(mac, num):
 def msg_ama(amatype):
     array = bytearray(16)
     array[c.VERSION] = c.SOFT_VERSION
-    array[c.TYPE]= AMA
+    array[c.TYPE]= c.AMA
     array[c.DATA] = amatype
     crc_get(array)
     return array

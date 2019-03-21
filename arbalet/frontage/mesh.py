@@ -41,7 +41,7 @@ def msg_color(colors, ama= 1):
             v = colors[int(ind/m)][int(ind % m)][1]
             b = colors[int(ind/m)][int(ind % m)][2]
             # print_flush("nan mais tout va bien en fait")
-        elif ( i != -1 and j != -1): #Il y a un champ color
+        elif ( i != -1 and j != -1 and i : #Il y a un champ color
             r = colors[i][j][0]
             v = colors[i][j][1]
             b = colors[i][j][2]
@@ -115,10 +115,13 @@ class Listen(Thread) :
                     array[j] = data[j]
                 #Setting flags...
                 mac = array_to_mac(data[c.DATA+2 : c.DATA +8])
-                print_flush("Pixel {0} has encountered a problem".format(mac))
+                print_flush("Pixel {0} has encountered a problem {1}".format(mac, data[c.DATA]))
                 if data[c.DATA] == c.ERROR_DECO :
-                    Listen.deco[mac] = Mesh.pixels.pop(mac)
-                    Websock.send_pixels(Mesh.pixels)
+                    if (Mesh.pixles.get(mac) is not None) :
+                        Listen.deco[mac] = Mesh.pixels.pop(mac)
+                        Websock.send_pixels(Mesh.pixels)
+                    elif (Listen.unk.get(mac) is not None) :
+                        Listen.unk.pop(mac)
                     print_flush("Add pixel {0} to Listen.deco : {1}".format(mac, Listen.deco))
                 elif data[c.DATA] == c.ERROR_CO :
                     if mac in Listen.deco :
@@ -163,7 +166,7 @@ class Mesh(Thread):
 
     #Is there realy a need for you "addressed" ??
 
-
+    addressed = None
     ama = 0 #fluctuates between 0 and 3 : 0 => NEVER_addressed; 1 => AMA_INIT; 2 => AMA_COLOR; 3 => RAC
     change_esp_state = False #Order from ama.py to shift ESP in other state
     rows = 0 #matrix height
@@ -177,6 +180,7 @@ class Mesh(Thread):
 
     def __init__(self, conn, addr):
         Thread.__init__(self)
+        print_flush("Pixels :", Mesh.pixels)
         Mesh.addressed = not (Mesh.pixels == {})
         #Communication with mesh network config
         self.mesh_conn = conn
@@ -365,6 +369,7 @@ class Mesh(Thread):
         self.stopped = True
 
 def main() :
+    nb_connection = 0
     while True :
         Mesh.socket= socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         while True:
@@ -382,12 +387,13 @@ def main() :
             print_flush("Socket opened, waiting for connection...")
             conn, addr = Mesh.socket.accept()
             print_flush("Connection accepted with {0}".format(addr))
+            nb_connection += 1
             if (socket_thread != None) :
                 socket_thread.close_socket()
             socket_thread = Mesh(conn, addr)
             socket_thread.print_mesh_info()
             # socket_thread.l.allowed = True
-            if Mesh.addressed :
+            if Mesh.addressed  and nb_connection != 1 :
                 print_flush("Envoie de la table de rootage à la nouvelle root")
                 socket_thread.send_table() #ne semble pas être pris en compte lors d'un pb de la root
             socket_thread.start()
