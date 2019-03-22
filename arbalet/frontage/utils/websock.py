@@ -10,6 +10,7 @@ KEY_WS_SEND = "KEY_WS_SEND"
 KEY_WS_SEND_MAC = "KEY_WS_SEND_MAC"
 POS_UNK = "POS_UNK"
 PIXELS = "PIXELS"
+DECO = "DECO"
 ADDR = "ADDR"
 AMA = "AMA"
 
@@ -46,6 +47,14 @@ class Websock(Thread):
         redis.set(PIXELS, json.dumps(pixels))
 
     @staticmethod
+    def send_deco(deconnected_pixels):
+        print_flush("###############################################################################")
+        print_flush("Send : [pixels={0}]".format(pixels))
+        print_flush("###############################################################################")
+        redis.set(DECO, json.dumps(pixels))
+
+
+    @staticmethod
     def send_esp_state(esp_state):
         print_flush("###############################################################################")
         print_flush("Send : [esp_state = {0}]".format(esp_state))
@@ -67,7 +76,6 @@ class Websock(Thread):
         if data == 'None':
              return None
         return data
-
 
     @staticmethod
     def get_esp_state():
@@ -99,6 +107,15 @@ class Websock(Thread):
     @staticmethod
     def get_pixels():
         data = redis_get(PIXELS, None)
+        # if data:
+        #     redis.set(PIXELS, 'None')
+        if data == 'None':
+            return None
+        return data
+
+    @staticmethod
+    def get_deco():
+        data = redis_get(DECO, None)
         # if data:
         #     redis.set(PIXELS, 'None')
         if data == 'None':

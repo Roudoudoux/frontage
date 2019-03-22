@@ -105,16 +105,20 @@ class Ama(Fap) :
             # get necessary informations (may be shift in __init__ ?)
             self.rows = SchedulerState.get_rows()
             self.cols = SchedulerState.get_cols()
-            if (self.ama) : # adressage manuel assisté
-                # self.pos_unknown = loads(Websock.get_pixels())
+            # get the pixels to address
+            self.pos_unknown = loads(Websock.get_pos_unk()) #Exemple {'@mac1' : ((x,j), 0), ...}}
+            if (self.ama) : # assisted manual addressing : reset the position of all pixels
                 Websock.send_pixels({})
-                # self.pixels = {'default' : ((-1,-1); -1)}
-            else : # réadressage à chaud
+            else : # hot assisted readdressing : reattribute the unsued frame indices (get from deconnected pixels) without touching to already addressed pixels
+                 unused_ind = [val[1] in [val in loads(Websock.get_deco())]]
+                 i = 0
+                 for mac in self.pos_unknown.keys() :
+                     if i < len(unused_ind) : # dummy security, should do something in the case of it happenning but dunno what (yet)
+                         self.pos_unknown[mac] = ((-1,-1), unused_ind[i])
+                     i += 1
                  self.pixels = loads(Websock.get_pixels())
                  self.pixels['default'] = ((-1,-1), -1)
                  # TODO : griser les pixels contenus dans self.pixels
-            # get the pixels to address
-            self.pos_unknown = loads(Websock.get_pos_unk()) #Exemple {'@mac1' : ((x,j), 0), ...}}
             print_flush(self.pos_unknown) #dummy print
             #self.pos_unknown = {'12:58:78:74:56:94':((-1, -1), 0), '12:58:78:74:56:95':((-1, -1), 1), '12:58:78:74:56:96':((-1, -1), 2)}#Dummy            #Tels mesh.py to shift in AMA mod
             print_flush("je change l'etat des esp en ADDR..............................................................;;")
