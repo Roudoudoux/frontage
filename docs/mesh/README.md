@@ -1,7 +1,7 @@
-Introduction {#introduction .unnumbered}
+Introduction 
 ============
 
-The Arbalet Mesh project is composed of a server and $n$ ESP32 part of a
+The Arbalet Mesh project is composed of a server and *n* ESP32 part of a
 mesh network.
 
 The server is hosted on a WiFi network protected by WPA2 protocol on
@@ -22,13 +22,12 @@ Frame composition
 -----------------
 
 In the mesh network, all frames are 16 Bytes long and share a common
-pattern (e.g FIGURE [1](#fig:Meshframe){reference-type="ref"
-reference="fig:Meshframe"}) but one which is the frame **COLOR**.
+pattern (e.g FIGURE [1](#fig:Meshframe)) but one which is the frame **COLOR**.
 **COLOR** is only transmitted from the Server to the ESP32 Root and will
 be described . The frame Bytes use the *uint8\_t* type.
 
 ![Frame format in mesh
-network[]{label="fig:Meshframe"}](images/img/MeshFrame.png){#fig:Meshframe}
+network[]{label="fig:Meshframe"}](images/img/MeshFrame.png)
 
 -   The first Byte is the software version. If the software version
     within the frame does not correspond with the one hard-coded in the
@@ -60,13 +59,13 @@ Check-sum
 The application protocol has a light check-sum which ensures that frames
 are not corrupted. This check-sum is based on the frame bits parity. A
 parity bit is computed on 7 bits as shown in the FIGURE
-[2](#fig:Checksum){reference-type="ref" reference="fig:Checksum"}. The
-check-sum is put at the frame's end. The check-sum length $cs_{len}$ is
-related to the frame length $f_{len}$ by the relation
-$sc_{len} = \lceil \frac{f_{len}}{8} \rceil$.
+[2](#fig:Checksum). The
+check-sum is put at the frame's end. The check-sum length ![equation](https://latex.codecogs.com/gif.latex?%24cs_%7Blen%7D%24) is
+related to the frame length ![equation](https://latex.codecogs.com/gif.latex?%24f_%7Blen%7D%24) by the relation
+![equation](https://latex.codecogs.com/gif.latex?sc_%7Blen%7D%20%3D%20%5Clceil%20%5Cfrac%7Bf_%7Blen%7D%7D%7B8%7D%20%5Crceil).
 
 ![Example of computed
-check-sum[]{label="fig:Checksum"}](images/img/Check-sum.png){#fig:Checksum}
+check-sum[]{label="fig:Checksum"}](images/img/Check-sum.png)
 
 Frame types
 -----------
@@ -74,7 +73,7 @@ Frame types
 ### BEACON
 
 **Type :** 1\
-**Communication :** ESP32 $->$ ESP32 Root, ESP32 Root $->$ Server\
+**Communication :** ESP32 -> ESP32 Root, ESP32 Root -> Server\
 **Frame length :** 16 Bytes\
 **Byte type :** *uint8\_t*
 
@@ -84,12 +83,12 @@ ESP32 Root which relays it to the server.\
 As long as the BEACON is not acknowledge by the ESP32 Root, the ESP32
 keeps emitting it.
 
-![Beacon data[]{label="fig:beacon"}](images/img/BEACON.png){#fig:beacon}
+![Beacon data[]{label="fig:beacon"}](images/img/BEACON.png)
 
 ### BEACON\_ACK
 
 **Type :** 2\
-**Communication :** ESP32 Root $->$ ESP32\
+**Communication :** ESP32 Root -> ESP32\
 **Frame length :** 16 Bytes\
 **Byte type :** *uint8\_t*
 
@@ -100,12 +99,12 @@ raised if the ESP32 has declared itself outside of the declaration
 phase.
 
 ![Beacon\_ack
-data[]{label="fig:beacona"}](images/img/BEACONA.png){#fig:beacona}
+data[]{label="fig:beacona"}](images/img/BEACONA.png)
 
 ### INSTALL
 
 **Type :** 3\
-**Communication :** Server $->$ ESP32 Root\
+**Communication :** Server -> ESP32 Root\
 **Frame length :** 16 Bytes\
 **Byte type :** *uint8\_t*
 
@@ -115,23 +114,23 @@ it fixes the MAC address position in the *route\_table* of the ESP32
 Root.
 
 ![Install
-data[]{label="fig:install"}](images/img/INSTALL.png){#fig:install}
+data[]{label="fig:install"}](images/img/INSTALL.png)
 
 ### COLOR
 
 **Type :** 4\
-**Communication :** Server $->$ ESP32 Root\
+**Communication :** Server -> ESP32 Root\
 **Frame length :**
-$\lceil \frac{8 \times (4 + pixel\ amount \times 3)}{7} \rceil$ Bytes\
+![equation](https://latex.codecogs.com/gif.latex?%5Clceil%20%5Cfrac%7B8%20%5Ctimes%20%284%20&plus;%20pixel%5C%20amount%20%5Ctimes%203%29%7D%7B7%7D%20%5Crceil) Bytes\
 **Byte type :** *uint8\_t*
 
 The **COLOR** frame transmits from the Server to the ESP32 Root an array
 which contains all the color (in RGB format) the mesh network has to
 display. Moreover, it also contains a version number (1 Byte), its frame
 type (1 Byte), a sequence number (2 Bytes) and a check-sum
-($\lceil \frac{frame\_length}{8}\rceil$ Bytes).
+(![equation](https://latex.codecogs.com/gif.latex?%5Clceil%20%5Cfrac%7Bframe_length%7D%7B8%7D%5Crceil) Bytes).
 
-![COLOR data[]{label="fig:color"}](images/img/COLOR.png){#fig:color}
+![COLOR data[]{label="fig:color"}](images/img/COLOR.png)
 
 The ESP32 Root compares the frame sequence number (*seq*) with the last
 one it received (*local\_seq*). If *seq* is higher than *local\_seq*,
@@ -142,7 +141,7 @@ anymore.
 ### COLOR\_E
 
 **Type :** 5\
-**Communication :** ESP32 Root $->$ ESP32\
+**Communication :** ESP32 Root -> ESP32\
 **Frame length :** 16 Bytes\
 **Byte type :** *uint8\_t*
 
@@ -150,7 +149,7 @@ A COLOR\_E frame contains the color which is to be displayed by the
 ESP32.
 
 ![COLOR\_E
-data[]{label="fig:color-e"}](images/img/COLOR-E.png){#fig:color-e}
+data[]{label="fig:color-e"}](images/img/COLOR-E.png)
 
 The receiver ESP32 compares the frame sequence number (*seq*) with the
 last one it received (*local\_seq*). If *seq* is higher than
@@ -161,14 +160,14 @@ no use anymore.
 ### AMA
 
 **Type :** 6\
-**Communication :** ESP32 $<->$ ESP32\
+**Communication :** ESP32 ![equation](https://latex.codecogs.com/gif.latex?%3C-%3E) ESP32, Server -> ESP32 Root\
 **Frame length :** 16 Bytes\
 **Byte type :** *uint8\_t*
 
 AMA frames are sent from the server to the mesh network. It starts and
 ends the assisted manual addressing on administrator command.
 
-![AMA data[]{label="fig:ama"}](images/img/AMA.png){#fig:ama}
+![AMA data[]{label="fig:ama"}](images/img/AMA.png)
 
 **AMA** frame has 3 sub-types :
 
@@ -181,18 +180,18 @@ ends the assisted manual addressing on administrator command.
 ### ERROR
 
 **Type :** 7\
-**Communication :** ESP32 $<->$ ESP32, ESP32 Root $<->$ Server\
+**Communication :** ESP32 ![equation](https://latex.codecogs.com/gif.latex?%3C-%3E) ESP32, ESP32 Root ![equation](https://latex.codecogs.com/gif.latex?%3C-%3E) Server\
 **Frame length :** 16 Bytes\
 **Byte type :** *uint8\_t*
 
 ERROR frames are used to handle exceptions and mesh connection problems.
 The flag section is used to acknowledge the frame received and to
-transmit the sender state. The $7^{th}$ bit is an acknowledgement bit,
-the $5^{th}$ bit is dedicated to determine if there is any ESP32 which
+transmit the sender state. The ![equation](https://latex.codecogs.com/gif.latex?%247%5E%7Bth%7D%24) bit is an acknowledgement bit,
+the ![equation](https://latex.codecogs.com/gif.latex?%245%5E%7Bth%7D%24) bit is dedicated to determine if there is any ESP32 which
 physical position is unknown, the first four bits represent the previous
 state of the sender, and other bits are currently unused.
 
-![ERROR Data[]{label="fig:error"}](images/img/ERROR.png){#fig:error}
+![ERROR Data[]{label="fig:error"}](images/img/ERROR.png)
 
 -   **ERROR\_co** : code 71, is a frame sent from the ESP32 Root to the
     server whenever a new ESP32 is connected. Its sub-type incurs an
@@ -219,24 +218,19 @@ The code embarked on ESP32 is implemented as a finite-state machine
 composed of 5 distinct states which are **INIT**, **CONF**, **ADDR**,
 **COLOR** and **ERROR**. Transitions from one state to another occur
 when particular frames are received (e.g. FIGURE
-[\[fig:statemachine\]](#fig:statemachine){reference-type="ref"
-reference="fig:statemachine"} & [11](#fig:Nodes){reference-type="ref"
-reference="fig:Nodes"}).
+[10](#fig:statemachine) & [11](#fig:Nodes)).
 
 ![State machine used by ESP32
-Nodes[]{label="fig:Nodes"}](images/img/StateMachine.png){#fig:Nodes
-width="5cm"}
+Nodes[]{label="fig:Nodes"}](images/img/StateMachine.png)
 
 ![State machine used by ESP32
-Nodes[]{label="fig:Nodes"}](images/img/NODES.png){#fig:Nodes
-width="5cm"}
+Nodes[]{label="fig:Nodes"}](images/img/NODES.png)
 
 Pixels are in operating mode when they are in **COLOR** state. All the
 ESP32 embarks the full state machine (FIGURE
-[\[fig:statemachine\]](#fig:statemachine){reference-type="ref"
-reference="fig:statemachine"}) but the **CONF** state is only accessible
+[10](#fig:statemachine) but the **CONF** state is only accessible
 to the ESP32 Root. Although ESP32 Nodes are allowed in a restricted area
-(FIGURE [11](#fig:Nodes){reference-type="ref" reference="fig:Nodes"}),
+(FIGURE [11](#fig:Nodes)),
 they embarks the full state machine instead of a lighter version because
 the ESP32 Root is not determined and any Node card can become Root if an
 error occurs.
