@@ -3,6 +3,7 @@
 #include "mesh.h"
 #include "thread.h"
 #include "shared_buffer.h"
+#include "display_color.h"
 #include "utils.h"
 #include "crc.h"
 
@@ -52,6 +53,26 @@ void server_reception(void * arg) {
 	  if (waiting_serv == 15) {
 	      is_server_connected = false;
 	      waiting_serv = 0;
+	      uint8_t buf_send[FRAME_SIZE];
+	      buf_send[VERSION] = SOFT_VERSION;
+	      buf_send[TYPE] = COLOR_E;
+	      current_sequence++;
+	      buf_send[DATA] = (current_sequence & (0xFF00))>>8;
+	      buf_send[DATA+1] = current_sequence & (0x00FF);
+	      uint8_t zeros[3] = {0, 0, 0};
+	      for (int i = 0; i < route_table_size; i++) {
+		  copy_buffer(buf_send+DATA+2, zeros, 3); // copy color triplet
+		  copy_buffer(buf_send+DATA+5, route_table[i].card.addr, 6); // copy mac adress
+		  //Checksum
+		  if (!same_mac(route_table[i].card.addr, my_mac)) {
+		      if (route_table[i].state) {
+			  int head = write_txbuffer(buf_send, FRAME_SIZE);
+			  xTaskCreate(mesh_emission, "ESPTX", 3072, (void *) head, 5, NULL);
+		      }
+		  } else {
+		      display_color(buf_send);
+		  }
+	      }
 	      vTaskDelete(NULL);
 	  }
 	  continue;
@@ -62,6 +83,26 @@ void server_reception(void * arg) {
 	  if (waiting_serv == 15) {
 	      is_server_connected = false;
 	      waiting_serv = 0;
+	      uint8_t buf_send[FRAME_SIZE];
+	      buf_send[VERSION] = SOFT_VERSION;
+	      buf_send[TYPE] = COLOR_E;
+	      current_sequence++;
+	      buf_send[DATA] = (current_sequence & (0xFF00))>>8;
+	      buf_send[DATA+1] = current_sequence & (0x00FF);
+	      uint8_t zeros[3] = {0, 0, 0};
+	      for (int i = 0; i < route_table_size; i++) {
+		  copy_buffer(buf_send+DATA+2, zeros, 3); // copy color triplet
+		  copy_buffer(buf_send+DATA+5, route_table[i].card.addr, 6); // copy mac adress
+		  //Checksum
+		  if (!same_mac(route_table[i].card.addr, my_mac)) {
+		      if (route_table[i].state) {
+			  int head = write_txbuffer(buf_send, FRAME_SIZE);
+			  xTaskCreate(mesh_emission, "ESPTX", 3072, (void *) head, 5, NULL);
+		      }
+		  } else {
+		      display_color(buf_send);
+		  }
+	      }
 	      vTaskDelete(NULL);
 	  }
 	  continue;
@@ -111,6 +152,7 @@ void mesh_emission(void * arg) {
 	    get_mac(mesg, to.addr);
 	    err = esp_mesh_send(&to, &data, MESH_DATA_P2P, NULL, 0);
 	    if (err != 0) {
+		//disable_node(to.addr);
 		ESP_LOGE(MESH_TAG, "Couldn't send COLOR to "MACSTR" - %s", MAC2STR(to.addr), esp_err_to_name(err));
 	    }
 	}
@@ -122,6 +164,7 @@ void mesh_emission(void * arg) {
 	    get_mac(mesg, to.addr);
 	    err = esp_mesh_send(&to, &data, MESH_DATA_P2P, NULL, 0);
 	    if (err != 0) {
+		disable_node(to.addr);
 		ESP_LOGE(MESH_TAG, "Couldn't send B_ACK to "MACSTR" - %s", MAC2STR(to.addr), esp_err_to_name(err));
 	    }
 	}
@@ -139,6 +182,7 @@ void mesh_emission(void * arg) {
 		get_mac(mesg, to.addr);
 		err = esp_mesh_send(&to, &data, MESH_DATA_P2P, NULL, 0);
 		if (err != 0) {
+		    //disable_node(to.addr);
 		    ESP_LOGI(MESH_TAG, "Coudln't send ERROR_GOTO %d to "MACSTR" : %s", mesg[DATA+1], MAC2STR(to.addr), esp_err_to_name(err));
 		} else {
 		    ESP_LOGI(MESH_TAG, "send ERROR_GOTO %d to "MACSTR, mesg[DATA+1], MAC2STR(to.addr));
@@ -151,6 +195,7 @@ void mesh_emission(void * arg) {
 	    if (!same_mac(route_table[i].card.addr, my_mac) && route_table[i].state) {
 		err = esp_mesh_send(&route_table[i].card, &data, MESH_DATA_P2P, NULL, 0);
 		if (err != 0) {
+		    //disable_node(route_table[i].card.addr);
 		    ESP_LOGE(MESH_TAG, "Couldn't send message %d to "MACSTR" - %s", type_mesg(mesg), MAC2STR(route_table[i].card.addr), esp_err_to_name(err));
 		}
 	    }

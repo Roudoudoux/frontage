@@ -4,7 +4,7 @@
 #include "utils.h"
 #include "esp32_digital_led_lib.h"
 
-strand_t strand[1] = {{.rmtChannel = 1, .gpioNum = 15, .ledType = LED_WS2812B_V3, .brightLimit = 32, .numPixels =  144, .pixels = NULL, ._stateVars = NULL}};//Array is normal, pls don't edit
+strand_t strand[1] = {{.rmtChannel = 1, .gpioNum = 15, .ledType = LED_WS2812B_V3, .brightLimit = 32, .numPixels =  20, .pixels = NULL, ._stateVars = NULL}};//Array is normal, pls don't edit
 
 void gpioSetup(int gpioNum, int gpioMode, int gpioVal) {
   #if defined(ARDUINO) && ARDUINO >= 100
@@ -20,7 +20,7 @@ void gpioSetup(int gpioNum, int gpioMode, int gpioVal) {
 }
 
 void init_leds() {
-    gpioSetup(16, OUTPUT, LOW);
+    gpioSetup(15, OUTPUT, LOW);
     ESP_LOGI(MESH_TAG, "Led init : %d", digitalLeds_initStrands(strand, 1));
 }
 

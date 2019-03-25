@@ -119,6 +119,7 @@ class Listen(Thread) :
             pass
         if (data != "" and crc_check(data[0:16])) :
             if (data[TYPE] == ERROR) :
+                print("Received data :", data)
                 array = bytearray(16)
                 array[VERSION] = SOFT_VERSION
                 array[TYPE] = ERROR
@@ -178,6 +179,7 @@ class Main_communication(Thread) :
             Main_communication.addressed = True
             self.l.allowed = True
         else :
+            self.l.allowed = True
             self.send_table()
         while True :
             self.state_color() #Todo : send only one message at a time.
@@ -310,6 +312,7 @@ def main() : #Kinda main-like. You can still put executable code between functio
             break
         socket_thread = None
         print("Socket opened, waiting for connection...")
+        print(Main_communication.s)
         while True :
             conn, addr = Main_communication.s.accept()
             print("Connection accepted")

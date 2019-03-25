@@ -13,6 +13,8 @@ void state_init() {
     int type = 0;
 
     if (esp_mesh_is_root()) {
+	uint8_t fake[FRAME_SIZE] = {0, 0, 0, 0, 255, 255, 0};
+	display_color(fake);
 	if (!is_server_connected) {
 	    connect_to_server();
 	    return;//Root can't progress if not connected to the server
@@ -32,6 +34,8 @@ void state_init() {
 		    ESP_LOGE(MESH_TAG, "Acquitted, but went into ERROR state");
 		    return;
 		}
+		uint8_t fake[FRAME_SIZE] = {0, 0, 0, 0, 0, 0, 255};
+		display_color(fake);
 		state = ADDR;
 		ESP_LOGE(MESH_TAG, "Went into ADDR state");
 		return;
@@ -225,7 +229,7 @@ void state_color() {
 
     if (type == COLOR) { // Root only
 	uint16_t sequ = buf_recv[DATA] << 8 | buf_recv[DATA+1];
-	ESP_LOGE(MESH_TAG, "Sequ = %d", sequ);
+	ESP_LOGE(MESH_TAG, "Sequ = %d / current_sequence = %d", sequ, current_sequence);
 	if (sequ > current_sequence || current_sequence - sequ > SEQU_SEUIL) {
 	    current_sequence = sequ;
 	    buf_send[VERSION] = SOFT_VERSION;
