@@ -24,6 +24,8 @@ from server.flaskutils import print_flush
 class Ama(Fap) :
         PLAYABLE = True
         ACTIVATED = True
+        PARAMS_LIST = {'uapp': ['true',
+                                'false']}
 
         def __init__(self, username, userid) :
                 Fap.__init__(self, username, userid)
@@ -110,7 +112,11 @@ class Ama(Fap) :
             # get the pixels to address
             self.pos_unknown = loads(Websock.get_pos_unk()) #Exemple {'@mac1' : ((x,j), 0), ...}}
 
-            if (True or params['ama'] == 'True') : # assisted manual addressing : reset the position of all pixels
+
+            self.params = params
+
+
+            if (True or self.params['uapp'] == "true") : # assisted manual addressing : reset the position of all pixels
                 Websock.send_pixels({})
             else :
                  # hot assisted readdressing : reattribute the unsued frame indices (get from deconnected pixels) without touching to already addressed pixels
