@@ -13,6 +13,7 @@ PIXELS = "PIXELS"
 DECO = "DECO"
 ADDR = "ADDR"
 AMA = "AMA"
+GET_DECO = "GET_DECO"
 
 class Websock(Thread):
     def __init__(self, fap, host='0.0.0.0', port=9988):
@@ -49,9 +50,26 @@ class Websock(Thread):
     @staticmethod
     def send_deco(deconnected_pixels):
         print_flush("###############################################################################")
-        print_flush("Send : [pixels={0}]".format(pixels))
+        print_flush("Send : [pixels_deconnected={0}]".format(deconnected_pixels))
         print_flush("###############################################################################")
-        redis.set(DECO, json.dumps(pixels))
+        redis.set(DECO, json.dumps(deconnected_pixels))
+
+    @staticmethod
+    def send_get_deco(bool=False):
+        print_flush("Send : [get_deco={}]".format(bool))
+        if bool :
+            redis.set(GET_DECO, "True")
+        else :
+            redis.set(GET_DECO, 'None')
+
+    @staticmethod
+    def should_get_deco():
+        data = redis_get(GET_DECO, None)
+        if data:
+            redis.set(GET_DECO, 'None')
+        if data == 'None':
+             return False
+        return True
 
 
     @staticmethod
@@ -80,8 +98,8 @@ class Websock(Thread):
     @staticmethod
     def get_esp_state():
         data = redis_get(ADDR, None)
-        if data:
-            redis.set(ADDR, 'None')
+        # if data:
+        #     redis.set(ADDR, 'None')
         # if data == 'None':
         #     return None
         return data
@@ -117,7 +135,7 @@ class Websock(Thread):
     def get_deco():
         data = redis_get(DECO, None)
         # if data:
-        #     redis.set(PIXELS, 'None')
+        #      redis.set(DECO, 'None')
         if data == 'None':
             return None
         return data

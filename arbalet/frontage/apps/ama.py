@@ -25,7 +25,7 @@ class Ama(Fap) :
         PLAYABLE = True
         ACTIVATED = True
 
-        def __init__(self, username, userid, ama = True) :
+        def __init__(self, username, userid) :
                 Fap.__init__(self, username, userid)
                 self.action = 1
                 self.rows = 0
@@ -34,7 +34,7 @@ class Ama(Fap) :
                 # self.pixels = SchedulerState.get_pixels_dic()
                 self.pixels = {'default' : ((-1,-1), -1) }
                 self.pos_unknown = {}
-                self.ama = ama
+                self.deco = {}
 
         #get information from frontage-frontend
         def handle_message(self, json_data, path=None) :
@@ -91,10 +91,12 @@ class Ama(Fap) :
             if default :
                 self.pixels['default'] = default
 
-        def update_DB(self) :
+        def update_DB(self, ama) :
             self.pixels.pop('default')
             Websock.send_pixels(self.pixels)
             Websock.send_pos_unk({})
+            Websock.send_deco(self.deco)
+            Websock.send_get_deco()
             #Update DB
             while (len(self.pixels) != 0) :
                 (mac, ((x,y),ind)) = self.pixels.popitem()
@@ -107,15 +109,17 @@ class Ama(Fap) :
             self.cols = SchedulerState.get_cols()
             # get the pixels to address
             self.pos_unknown = loads(Websock.get_pos_unk()) #Exemple {'@mac1' : ((x,j), 0), ...}}
-            if (self.ama) : # assisted manual addressing : reset the position of all pixels
+
+            if (True or params['ama'] == 'True') : # assisted manual addressing : reset the position of all pixels
                 Websock.send_pixels({})
-            else : # hot assisted readdressing : reattribute the unsued frame indices (get from deconnected pixels) without touching to already addressed pixels
-                 unused_ind = [val[1] in [val in loads(Websock.get_deco())]]
-                 i = 0
+            else :
+                 # hot assisted readdressing : reattribute the unsued frame indices (get from deconnected pixels) without touching to already addressed pixels
+                 self.deco = loads(Websock.get_deco())
                  for mac in self.pos_unknown.keys() :
-                     if i < len(unused_ind) : # dummy security, should do something in the case of it happenning but dunno what (yet)
-                         self.pos_unknown[mac] = ((-1,-1), unused_ind[i])
-                     i += 1
+                     if len(self.deco) > 0 :
+                         # dummy security, should do something in the case of it happenning but dunno what (yet)
+                         pixel_deco = self.deco.popitem()
+                         self.pos_unknown[mac] = ((-1,-1), pixel_deco[1][1])
                  self.pixels = loads(Websock.get_pixels())
                  self.pixels['default'] = ((-1,-1), -1)
                  # TODO : griser les pixels contenus dans self.pixels
@@ -123,7 +127,7 @@ class Ama(Fap) :
             #self.pos_unknown = {'12:58:78:74:56:94':((-1, -1), 0), '12:58:78:74:56:95':((-1, -1), 1), '12:58:78:74:56:96':((-1, -1), 2)}#Dummy            #Tels mesh.py to shift in AMA mod
             print_flush("je change l'etat des esp en ADDR..............................................................;;")
             # put esp root in the right state
-            Websock.send_esp_state('ADDR')
+            Websock.send_esp_state(0)
             print_flush("Je suis avant la boucle ..................................................................;")
             #Start the AMA/RaC procedure
             iteration = 1
@@ -177,7 +181,7 @@ class Ama(Fap) :
                         waiting += 1
             self.update_DB() #publish on REDIS and save in DB the new pixels dictionary
             #Tels mesh.py to shift in COLOR mod
-            Websock.send_esp_state('COLOR')
+            Websock.send_esp_state(1)
             print_flush(SchedulerState.get_pixels_dic())
             self.model.set_all('black')
             self.send_model()
