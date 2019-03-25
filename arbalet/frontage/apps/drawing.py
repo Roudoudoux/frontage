@@ -31,6 +31,7 @@ class Drawing(Fap):
         print_flush("Init of DRAWING", self.model.height, self.model.width)
 
     def handle_message(self, json_data, path=None): # noqa
+        print_flush("Received something :3")
         if json_data is None:
             raise ValueError("Error : message received on websocket is empty.")
         elif isinstance(json_data, str):

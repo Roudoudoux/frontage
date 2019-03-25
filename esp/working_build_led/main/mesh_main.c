@@ -128,6 +128,16 @@ void connect_to_server() {
 	ESP_LOGW(MESH_TAG, "Connected to Server");
 	xTaskCreate(server_reception, "SERRX", 6000, NULL, 5, NULL);
 	is_server_connected = true;
+	if (state != INIT) {
+	    uint8_t buf_send[FRAME_SIZE];
+	    buf_send[VERSION] = SOFT_VERSION;
+	    buf_send[TYPE] = ERROR;
+	    buf_send[DATA] = ERROR_ROOT;
+	    buf_send[DATA+1] = state;
+	    copy_buffer(buf_send + DATA + 2, my_mac, 6);
+	    int head = write_txbuffer(buf_send, FRAME_SIZE);
+	    xTaskCreate(server_emission, "SERTX", 3072, (void *) head, 5, NULL);
+	}
     }
 }
 
@@ -137,7 +147,7 @@ void connect_to_server() {
  */
 void esp_mesh_state_machine(void * arg) {
     is_running = true;
-
+    
     while(is_running) {;
 	switch(state) {
 	case INIT:
@@ -324,6 +334,8 @@ void mesh_event_handler(mesh_event_t event)
                  event.info.disconnected.reason);
         is_mesh_connected = false;
         mesh_layer = esp_mesh_get_layer();
+	uint8_t fake[FRAME_SIZE] = {0, 0, 0, 0, 255, 0, 255};//In official build, turn off pixels. Currently, may be mistaken for LED failure, so color signal it is.
+	display_color(fake);
         break;
     case MESH_EVENT_LAYER_CHANGE:
         mesh_layer = event.info.layer_change.new_layer;
@@ -427,19 +439,18 @@ void app_main(void)
      * */
     ESP_ERROR_CHECK(tcpip_adapter_dhcps_stop(TCPIP_ADAPTER_IF_AP));
     ESP_ERROR_CHECK(tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_STA));
-#if 0
-    /* static ip settings */
-    tcpip_adapter_ip_info_t sta_ip;
-    sta_ip.ip.addr = ipaddr_addr("192.168.1.102");
-    sta_ip.gw.addr = ipaddr_addr("192.168.1.1");
-    sta_ip.netmask.addr = ipaddr_addr("255.255.255.0");
-    tcpip_adapter_set_ip_info(WIFI_IF_STA, &sta_ip);
-#endif
     /*  wifi initialization */
     ESP_ERROR_CHECK(esp_event_loop_init(NULL, NULL));
     wifi_init_config_t config = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&config));
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_FLASH));
+    /*wifi_config_t sta_config = {
+	.sta = {
+	    .ssid = CONFIG_MESH_ROUTER_SSID,
+	    .password = CONFIG_MESH_ROUTER_PASSWD
+	}
+    };
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &sta_config));*/
     ESP_ERROR_CHECK(esp_wifi_start());
     /*  mesh initialization */
     ESP_ERROR_CHECK(esp_mesh_init());
@@ -476,7 +487,7 @@ void app_main(void)
     /* Socket creation */
     memset(&tcpServerAddr, 0, sizeof(tcpServerAddr));
     tcpServerAddr.sin_family = AF_INET;
-    tcpServerAddr.sin_addr.s_addr = inet_addr("10.42.0.1");
+    tcpServerAddr.sin_addr.s_addr = inet_addr("192.168.0.101");
     tcpServerAddr.sin_len = sizeof(tcpServerAddr);
     tcpServerAddr.sin_port = htons(9988);
     /* Strand Init (LED Ribbon) */

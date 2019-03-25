@@ -50,6 +50,7 @@
 #define ERROR_CO 71
 #define ERROR_DECO 72
 #define ERROR_GOTO 73
+#define ERROR_ROOT 74
 
 /* States */
 

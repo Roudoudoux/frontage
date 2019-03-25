@@ -221,7 +221,7 @@ void CPU_load(void * pvParameter)
 {
     while(1) {
 	unsigned int cycles = ctr;
-	ESP_LOGI(MESH_TAG, "CPU LOAD = %d \n", (int)(((float)cycles/100)*100));
+	ESP_LOGI(MESH_TAG, "CPU LOAD = %d percent\n", (int)(((float)cycles/100)*100));
 	ctr = 0;
 	vTaskDelay(1000/portTICK_PERIOD_MS);
     }
