@@ -91,7 +91,7 @@ class Ama(Fap) :
             if default :
                 self.pixels['default'] = default
 
-        def update_DB(self, ama) :
+        def update_DB(self) :
             self.pixels.pop('default')
             Websock.send_pixels(self.pixels)
             Websock.send_pos_unk({})
@@ -171,6 +171,10 @@ class Ama(Fap) :
                         #it is a must because without it we could pass the while condition
                         pass
                 print_flush("WE DID IT!!!!!! One lap completed!!!!!!!!!")
+            self.update_DB() #publish on REDIS and save in DB the new pixels dictionary
+            #Tels mesh.py to shift in COLOR mod
+            Websock.send_esp_state(1)
+            print_flush(SchedulerState.get_pixels_dic())
             for i in range(self.rows) :
                 for j in range(self.cols) :
                     self.model.set_pixel(i, j, name_to_rgb('red'))
@@ -179,10 +183,6 @@ class Ama(Fap) :
                         self.send_model()
                         time.sleep(0.1)
                         waiting += 1
-            self.update_DB() #publish on REDIS and save in DB the new pixels dictionary
-            #Tels mesh.py to shift in COLOR mod
-            Websock.send_esp_state(1)
-            print_flush(SchedulerState.get_pixels_dic())
             self.model.set_all('black')
             self.send_model()
             while True:

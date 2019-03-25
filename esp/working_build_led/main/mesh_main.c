@@ -487,7 +487,7 @@ void app_main(void)
     /* Socket creation */
     memset(&tcpServerAddr, 0, sizeof(tcpServerAddr));
     tcpServerAddr.sin_family = AF_INET;
-    tcpServerAddr.sin_addr.s_addr = inet_addr("192.168.0.101");
+    tcpServerAddr.sin_addr.s_addr = inet_addr("10.42.0.1");//("192.168.0.101");
     tcpServerAddr.sin_len = sizeof(tcpServerAddr);
     tcpServerAddr.sin_port = htons(9988);
     /* Strand Init (LED Ribbon) */

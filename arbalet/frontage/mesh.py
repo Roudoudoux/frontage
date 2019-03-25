@@ -148,9 +148,9 @@ class Listen(Thread) :
                 array = msg_install(data, Mesh.comp)
                 Mesh.comp += 1
                 self.com.mesh_conn.send(array)
-                if Mesh.comp == Mesh.required_amount :
-                    self.com.mesh_conn.send(msg_ama(c.AMA_INIT))
-                    self.com.mesh_conn.send(msg_ama(c.AMA_COLOR))
+                # if Mesh.comp == Mesh.required_amount :
+                #     self.com.mesh_conn.send(msg_ama(c.AMA_INIT))
+                #     self.com.mesh_conn.send(msg_ama(c.AMA_COLOR))
             else :
                 print_flush("received unintersting message...")
 
@@ -258,7 +258,7 @@ class Mesh(Thread):
         tmp = Websock.get_esp_state()
         print_flush(tmp)
         print_flush("avt eval de tmp {}".format(tmp))
-        if tmp != None and loads(tmp) != sel.previous_state: #temporaire en attendant une mise de verrou dans websocket
+        if tmp != None and eval(tmp) != self.previous_state: #temporaire en attendant une mise de verrou dans websocket
             Mesh.change_esp_state = True
             print_flush("tmp != None")
             self.previous_state = eval(tmp)
