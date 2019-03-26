@@ -32,5 +32,5 @@ void display_color(uint8_t buf[FRAME_SIZE]) {
       pStrand->pixels[i] = pixelFromRGB(color[0], color[1], color[2]);
     }
     digitalLeds_updatePixels(pStrand);
-    ESP_LOGI(MESH_TAG, "Diplay color triplet : (%d, %d, %d)", color[0], color[1], color[2]);
+    //ESP_LOGI(MESH_TAG, "Diplay color triplet : (%d, %d, %d)", color[0], color[1], color[2]);
 }

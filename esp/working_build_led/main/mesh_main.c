@@ -186,10 +186,18 @@ void blink_task(void *pvParameter)
     gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
 	/* Blink off (output low) */
     while(1) {
-	for (int i = 0; i < esp_mesh_get_layer(); i++) {
+	for (int i = 0; i < state; i++) {
 	    gpio_set_level(BLINK_GPIO, 1);
 	    vTaskDelay(200 / portTICK_PERIOD_MS);
-	    /* Blink on (output high) */
+	    // Blink on (output high) 
+	    gpio_set_level(BLINK_GPIO, 0);
+	    vTaskDelay(200 / portTICK_PERIOD_MS);
+	}
+	vTaskDelay(2000 / portTICK_PERIOD_MS);
+	/*for (int i = 0; i < esp_mesh_get_layer(); i++) {
+	    gpio_set_level(BLINK_GPIO, 1);
+	    vTaskDelay(200 / portTICK_PERIOD_MS);
+	    // Blink on (output high) 
 	    gpio_set_level(BLINK_GPIO, 0);
 	    vTaskDelay(200 / portTICK_PERIOD_MS);
 	}
@@ -202,7 +210,7 @@ void blink_task(void *pvParameter)
 	for (int i = 0; i < first_half; i++) {
 	    gpio_set_level(BLINK_GPIO, 1);
 	    vTaskDelay(200 / portTICK_PERIOD_MS);
-	    /* Blink on (output high) */
+	    // Blink on (output high) 
 	    gpio_set_level(BLINK_GPIO, 0);
 	    vTaskDelay(200 / portTICK_PERIOD_MS);
 	}
@@ -210,11 +218,11 @@ void blink_task(void *pvParameter)
 	for (int i = 0; i < last_half-1; i++) {
 	    gpio_set_level(BLINK_GPIO, 1);
 	    vTaskDelay(200 / portTICK_PERIOD_MS);
-	    /* Blink on (output high) */
+	    // Blink on (output high) 
 	    gpio_set_level(BLINK_GPIO, 0);
 	    vTaskDelay(200 / portTICK_PERIOD_MS);
 	}
-	vTaskDelay(5000 / portTICK_PERIOD_MS);
+	vTaskDelay(5000 / portTICK_PERIOD_MS);*/
     }
 }
 

@@ -70,7 +70,7 @@ class Listen(Thread) :
         #pb : récupérer l'adresse de la nouvelle root
         #passe la nouvelle root en state_conf
         array = msg_readressage(Mesh.mac_root, c.STATE_CONF)#comment trouver l'adresse mac de la nouvelle root ????
-        self.mesh_conn.send(array)
+        self.com.mesh_conn.send(array)
         #envoie de trames install (manque potentiellement les pixels deco)
         root_val = Mesh.pixels[Mesh.mac_root]
         for val in Mesh.pixels :

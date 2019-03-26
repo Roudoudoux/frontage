@@ -122,10 +122,17 @@ class SchedulerState(object):
             if (cell.X == x and cell.Y == y):
                 isInTable = True
                 cell.MacAddress = mac_address
+                cell.Ind = ind
+            elif (cell.MacAddress == mac_address) :
+                isInTable = True
+                cell.Ind = ind
+                cell.X == x
+                cell.Y == y
         if (isInTable == False):
             cell = CellTableModel(x, y, mac_address, ind)
             session.add(cell)
             session.commit()
+
         session.close()
 
     @staticmethod
@@ -137,6 +144,15 @@ class SchedulerState(object):
             dic[cell.MacAddress] = ((cell.X, cell.Y), cell.Ind)
         session.close()
         return dic
+
+    @staticmethod
+    def drop_dic() :
+        session = session_factory()
+        table = session.query(CellTableModel).all()
+        for cell in table :
+            session.delete(cell)
+        session.commit()
+        session.close()
 
     @staticmethod
     def get_expires_value():

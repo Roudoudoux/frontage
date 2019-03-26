@@ -229,7 +229,7 @@ void state_color() {
 
     if (type == COLOR) { // Root only
 	uint16_t sequ = buf_recv[DATA] << 8 | buf_recv[DATA+1];
-	ESP_LOGE(MESH_TAG, "Sequ = %d / current_sequence = %d", sequ, current_sequence);
+	//ESP_LOGE(MESH_TAG, "Sequ = %d / current_sequence = %d", sequ, current_sequence);
 	if (sequ > current_sequence || current_sequence - sequ > SEQU_SEUIL) {
 	    current_sequence = sequ;
 	    buf_send[VERSION] = SOFT_VERSION;

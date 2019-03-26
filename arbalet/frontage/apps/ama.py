@@ -100,9 +100,13 @@ class Ama(Fap) :
             Websock.send_deco(self.deco)
             Websock.send_get_deco()
             #Update DB
+            if (self.params['uapp'] == True) :
+                Scheduler_state.drop_dic()
+                print_flush("Database cleaned")
             while (len(self.pixels) != 0) :
                 (mac, ((x,y),ind)) = self.pixels.popitem()
                 SchedulerState.add_cell(x, y, mac, ind)
+            print_flush("Database updated")
 
         def run(self, params, expires_at=None) :
             self.start_socket()
@@ -116,7 +120,7 @@ class Ama(Fap) :
             self.params = params
 
 
-            if (True or self.params['uapp'] == "true") : # assisted manual addressing : reset the position of all pixels
+            if (self.params['uapp'] == "true") : # assisted manual addressing : reset the position of all pixels
                 Websock.send_pixels({})
             else :
                  # hot assisted readdressing : reattribute the unsued frame indices (get from deconnected pixels) without touching to already addressed pixels

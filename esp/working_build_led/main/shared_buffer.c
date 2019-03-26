@@ -33,7 +33,7 @@ void write_rxbuffer(uint8_t * data, uint16_t size){
     pthread_mutex_lock(&rxbuf_write);
     int head = rxbuf_head;
     rxbuf_head = (rxbuf_head + size) % RXB_SIZE;
-    ESP_LOGI(MESH_TAG, "rxbuf_free_size = %d, rxbuf_head = %d, rxbuf_tail = %d", rxbuf_free_size, rxbuf_head, rxbuf_tail);
+    //ESP_LOGI(MESH_TAG, "rxbuf_free_size = %d, rxbuf_head = %d, rxbuf_tail = %d", rxbuf_free_size, rxbuf_head, rxbuf_tail);
     pthread_mutex_unlock(&rxbuf_write);
     for(int i = 0; i < size; i++){
       reception_buffer[(head + i) % RXB_SIZE] = data[i];
@@ -53,7 +53,7 @@ looptx:
    pthread_mutex_lock(&txbuf_write);
    int head = txbuf_head;
    txbuf_head = (txbuf_head + size) % TXB_SIZE;
-   ESP_LOGI(MESH_TAG, "txbuf_free_size = %d, txbuf_head = %d", txbuf_free_size, txbuf_head);
+   //ESP_LOGI(MESH_TAG, "txbuf_free_size = %d, txbuf_head = %d", txbuf_free_size, txbuf_head);
    pthread_mutex_unlock(&txbuf_write);
    for(int i = 0; i < size; i++){
        transmission_buffer[(head + i) % TXB_SIZE] = data[i];
@@ -71,7 +71,7 @@ void read_rxbuffer(uint8_t * data) {
     }
     rxbuf_tail = (rxbuf_tail + type) % RXB_SIZE;
     rxbuf_free_size = rxbuf_free_size + type;
-    ESP_LOGI(MESH_TAG, "rxbuf_free_size = %d, rxbuf_head = %d, rxbuf_tail = %d", rxbuf_free_size, rxbuf_head, rxbuf_tail);
+    //ESP_LOGI(MESH_TAG, "rxbuf_free_size = %d, rxbuf_head = %d, rxbuf_tail = %d", rxbuf_free_size, rxbuf_head, rxbuf_tail);
   } else {
     //ESP_LOGI(MESH_TAG, "nothing to read");
     pthread_mutex_unlock(&rxbuf_read);
@@ -85,6 +85,6 @@ void read_txbuffer(uint8_t * data, int head){
   pthread_mutex_lock(&txbuf_read);
   copy_buffer(data, transmission_buffer + head, FRAME_SIZE);
   txbuf_free_size = txbuf_free_size + FRAME_SIZE;
-  ESP_LOGI(MESH_TAG, "txbuf_free_size = %d, txbuf_head = %d", txbuf_free_size, txbuf_head);
+  //ESP_LOGI(MESH_TAG, "txbuf_free_size = %d, txbuf_head = %d", txbuf_free_size, txbuf_head);
   pthread_mutex_unlock(&txbuf_read);
 }
