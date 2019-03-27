@@ -100,8 +100,8 @@ class Ama(Fap) :
             Websock.send_deco(self.deco)
             Websock.send_get_deco()
             #Update DB
-            if (self.params['uapp'] == True) :
-                Scheduler_state.drop_dic()
+            if (self.params['uapp'] == 'true') :
+                SchedulerState.drop_dic()
                 print_flush("Database cleaned")
             while (len(self.pixels) != 0) :
                 (mac, ((x,y),ind)) = self.pixels.popitem()

@@ -124,10 +124,12 @@ class Listen(Thread) :
                         array[c.DATA+1] = array[c.DATA+1] | 32
                 elif data[c.DATA] == c.ERROR_ROOT :
                     Mesh.mac_root = mac
+                    Mesh.comp = data[c.DATA+1] >> 4 #Getting back number of cards in network
+                    data[c.DATA+1] = data[c.DATA+1] & (2**4-1)
                     self.send_table(data[c.DATA+1])
                     return
                 else :
-                    print_flush("WTF????")
+                    print_flush("Unkown message type")
                 print_flush("Received message, acquitting it", data)
                 print_flush("Updates  Listen.deco {0} \n Updates Listen.unk {1}".format(Listen.deco, Listen.unk))
                 array[c.DATA+1] = array[c.DATA+1] | 128

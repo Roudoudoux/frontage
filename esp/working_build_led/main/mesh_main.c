@@ -133,7 +133,7 @@ void connect_to_server() {
 	    buf_send[VERSION] = SOFT_VERSION;
 	    buf_send[TYPE] = ERROR;
 	    buf_send[DATA] = ERROR_ROOT;
-	    buf_send[DATA+1] = state;
+	    buf_send[DATA+1] = state & (route_table_size << 4);
 	    copy_buffer(buf_send + DATA + 2, my_mac, 6);
 	    int head = write_txbuffer(buf_send, FRAME_SIZE);
 	    xTaskCreate(server_emission, "SERTX", 3072, (void *) head, 5, NULL);

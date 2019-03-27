@@ -115,20 +115,24 @@ class SchedulerState(object):
 
     @staticmethod
     def add_cell(x, y, mac_address, ind):
+        print_flush("Considering {0} at (({1}, {2}), {3})".format(mac_address, x, y, ind))
         session = session_factory()
         table = session.query(CellTableModel).all()
         isInTable = False
         for cell in table:
             if (cell.X == x and cell.Y == y):
+                print_flush("Found its position : updating mac and ind...")
                 isInTable = True
                 cell.MacAddress = mac_address
                 cell.Ind = ind
             elif (cell.MacAddress == mac_address) :
+                print_flush("Found its mac : updating position and ind...")
                 isInTable = True
                 cell.Ind = ind
                 cell.X == x
                 cell.Y == y
         if (isInTable == False):
+            print_flush("Not found : adding to table")
             cell = CellTableModel(x, y, mac_address, ind)
             session.add(cell)
             session.commit()
