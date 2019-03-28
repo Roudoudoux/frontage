@@ -93,7 +93,7 @@ class Listen(Thread) :
     def listen(self) :
         data = ""
         self.count += 1
-        print_flush("{0} Listening...".format(self.count))
+        print_flush("{0} Listening... {1}".format(self.count, time.asctime( time.localtime(time.time()) )))
         data = self.com.mesh_conn.recv(1500)
         if (data != "" and crc_check(data[0:16])) :
             #ajout message sur sentry
@@ -130,8 +130,15 @@ class Listen(Thread) :
                         array[c.DATA+1] = array[c.DATA+1] | 32
                 elif data[c.DATA] == c.ERROR_ROOT :
                     Mesh.mac_root = mac
+                    nb_card = (data[c.DATA+1] & 0xF0) >> 4
+                    print_flush("on dit qu'il y a {}".format(nb_card))
+                    if Mesh.comp >= nb_card :
+                        self.send_table(data[c.DATA+1] & 0x0F) # Only if new root => Root.comp = 0?
+                    else :
+                        Mesh.comp = nb_card
+                        Mesh.addressed = True
+                        msg_readressage(Mesh.mac_root, data[c.DATA+1] & 0x0F)
                     #Mesh.comp = data[c.DATA+1] >> 4 #Getting back number of cards in network -> Only if Mesh.comp < Root.comp?
-                    self.send_table(data[c.DATA+1] & 0x0F) # Only if new root => Root.comp = 0?
                     return
                 else :
                     print_flush("Unkown message type")
@@ -263,16 +270,16 @@ class Mesh(Thread):
         b = body.decode('ascii')
         self.model.set_from_json(b)
         tmp = Websock.get_esp_state()
-        print_flush(tmp)
-        print_flush("avt eval de tmp {}".format(tmp))
+        # print_flush(tmp)
+        # print_flush("avt eval de tmp {}".format(tmp))
         if tmp != None and eval(tmp) != self.previous_state: #temporaire en attendant une mise de verrou dans websocket
             Mesh.change_esp_state = True
-            print_flush("tmp != None")
+            print_flush("tmp != None, tmp = {}".format(tmp))
             self.previous_state = eval(tmp)
         else :
-            print_flush("tmp == None")
+            # print_flush("tmp == None")
             Mesh.change_esp_state = False
-        print_flush("ap eval de tmp {}".format(self.previous_state))
+        # print_flush("ap eval de tmp {}".format(self.previous_state))
         if Mesh.change_esp_state :
             Mesh.ama += 1
             if Mesh.ama == 1 : #AMA procedure starts
@@ -363,6 +370,7 @@ class Mesh(Thread):
 
 def main() :
     nb_connection = 0
+    Websock.send_esp_state(1)
     while True :
         Mesh.socket= socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         print_flush(Mesh.socket.gettimeout())

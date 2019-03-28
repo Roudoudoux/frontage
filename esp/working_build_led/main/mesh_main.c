@@ -147,7 +147,7 @@ void connect_to_server() {
  */
 void esp_mesh_state_machine(void * arg) {
     is_running = true;
-    
+
     while(is_running) {;
 	switch(state) {
 	case INIT:
@@ -189,40 +189,11 @@ void blink_task(void *pvParameter)
 	for (int i = 0; i < state; i++) {
 	    gpio_set_level(BLINK_GPIO, 1);
 	    vTaskDelay(200 / portTICK_PERIOD_MS);
-	    // Blink on (output high) 
+	    // Blink on (output high)
 	    gpio_set_level(BLINK_GPIO, 0);
 	    vTaskDelay(200 / portTICK_PERIOD_MS);
 	}
 	vTaskDelay(2000 / portTICK_PERIOD_MS);
-	/*for (int i = 0; i < esp_mesh_get_layer(); i++) {
-	    gpio_set_level(BLINK_GPIO, 1);
-	    vTaskDelay(200 / portTICK_PERIOD_MS);
-	    // Blink on (output high) 
-	    gpio_set_level(BLINK_GPIO, 0);
-	    vTaskDelay(200 / portTICK_PERIOD_MS);
-	}
-	vTaskDelay(2000 / portTICK_PERIOD_MS);
-	if (mesh_parent_addr.addr[5] == 0) {
-	    continue;
-	}
-	int first_half = mesh_parent_addr.addr[5] / 16;
-	int last_half = mesh_parent_addr.addr[5] % 16;
-	for (int i = 0; i < first_half; i++) {
-	    gpio_set_level(BLINK_GPIO, 1);
-	    vTaskDelay(200 / portTICK_PERIOD_MS);
-	    // Blink on (output high) 
-	    gpio_set_level(BLINK_GPIO, 0);
-	    vTaskDelay(200 / portTICK_PERIOD_MS);
-	}
-	vTaskDelay(2000 / portTICK_PERIOD_MS);
-	for (int i = 0; i < last_half-1; i++) {
-	    gpio_set_level(BLINK_GPIO, 1);
-	    vTaskDelay(200 / portTICK_PERIOD_MS);
-	    // Blink on (output high) 
-	    gpio_set_level(BLINK_GPIO, 0);
-	    vTaskDelay(200 / portTICK_PERIOD_MS);
-	}
-	vTaskDelay(5000 / portTICK_PERIOD_MS);*/
     }
 }
 
