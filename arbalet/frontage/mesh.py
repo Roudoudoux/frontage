@@ -67,14 +67,20 @@ class Listen(Thread) :
 
     #Send the current routing table to the new elected root within the mesh network
     def send_table(self, previous_state):
+        print_flush("Sending routing table... Step 1 achieved.")
         #pb : récupérer l'adresse de la nouvelle root
         #passe la nouvelle root en state_conf
         array = msg_readressage(Mesh.mac_root, c.STATE_CONF)#comment trouver l'adresse mac de la nouvelle root ????
         self.com.mesh_conn.send(array)
         #envoie de trames install (manque potentiellement les pixels deco)
         root_val = Mesh.pixels[Mesh.mac_root]
+        card_list = [None] * Mesh.comp
         for val in Mesh.pixels :
             ((i,j), ind) = Mesh.pixels.get(val)
+            card_list[ind] = ((i, j), val)
+        #Il faut trier les valeurs, et les envoyer par indice croissant. L'algo des cartes ESP ne se met pas à jour correctement sinon.
+        for ind, value in enumerate(card_list) :
+            ((i, j), val) = value
             print_flush("on envoie INSTALL pour {}".format(ind))
             array = msg_install_from_mac(val, ind)
             print_flush("voici l'array {}".format(array))
@@ -124,9 +130,8 @@ class Listen(Thread) :
                         array[c.DATA+1] = array[c.DATA+1] | 32
                 elif data[c.DATA] == c.ERROR_ROOT :
                     Mesh.mac_root = mac
-                    Mesh.comp = data[c.DATA+1] >> 4 #Getting back number of cards in network
-                    data[c.DATA+1] = data[c.DATA+1] & (2**4-1)
-                    self.send_table(data[c.DATA+1])
+                    #Mesh.comp = data[c.DATA+1] >> 4 #Getting back number of cards in network -> Only if Mesh.comp < Root.comp?
+                    self.send_table(data[c.DATA+1] & 0x0F) # Only if new root => Root.comp = 0?
                     return
                 else :
                     print_flush("Unkown message type")
