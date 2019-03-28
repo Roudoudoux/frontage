@@ -365,6 +365,7 @@ def main() :
     nb_connection = 0
     while True :
         Mesh.socket= socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print_flush(Mesh.socket.gettimeout())
         while True:
             try :
                 Mesh.socket.bind((c.HOST, c.PORT))
