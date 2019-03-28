@@ -35,6 +35,7 @@ void mesh_reception(void * arg) {
         ESP_LOGE(MESH_TAG, "Invalid CRC from Mesh");
         continue;
       }
+      ESP_LOGI(MESH_TAG, "Received message from mesh of size %d\n", data.size);
       write_rxbuffer(data.data, data.size);
   }
 
@@ -44,9 +45,10 @@ void mesh_reception(void * arg) {
 void server_reception(void * arg) {
     uint8_t buf[1500];
     int len;
-
+    int tampon = 0;
+    
     while(is_running) {
-      len = recv(sock_fd, &buf, 1500, MSG_OOB);
+	len = recv(sock_fd, &buf[tampon], 1500-tampon, MSG_OOB);
       if (len == -1) {
 	  waiting_serv++;
 	  ESP_LOGE(MESH_TAG, "Communication Socket error, %d", waiting_serv);
@@ -110,13 +112,28 @@ void server_reception(void * arg) {
       waiting_serv = 0;
       ESP_LOGI(MESH_TAG, "Message received from server of len %d = %d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d-%d", len, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9], buf[10], buf[11], buf[12], buf[13], buf[14], buf[15]);
       int head = 0;
-      while(head < len) {
+      while(head < len+tampon) {
 	  int size = get_size(buf[head+TYPE]);
-	  if (buf[VERSION] != SOFT_VERSION) {
+	  if (head+size > 1500) {
+	      ESP_LOGE(MESH_TAG, "Message on other half, copying...");
+	      for (int i = 0; i < 1500 - head; i++) {
+		  buf[i] = buf[head+i];
+	      }
+	      tampon = 1500 - head;
+	      head = head + tampon;
+	      continue;
+	  }
+	  if (buf[head+VERSION] != SOFT_VERSION) {
 	      ESP_LOGE(MESH_TAG, "Software version not matching with server");
 	      head = head + size;
 	      continue;
-	  } if (!check_crc(buf+head, size)) {
+	  }
+	  if (buf[head+TYPE] == COLOR && len == (1500-tampon)) {
+	      head = head+size;
+	      ESP_LOGE(MESH_TAG, "Catching up, dropping color frame");
+	      continue;
+	  }
+	  if (!check_crc(buf+head, size)) {
 	      ESP_LOGE(MESH_TAG, "Invalid CRC from server");
 	      head = head + size;
 	      continue;
@@ -171,6 +188,7 @@ void mesh_emission(void * arg) {
 	break;
     case ERROR :
 	{
+	    ESP_LOGW(MESH_TAG, "Reached error, type = %d\n", mesg[DATA]);
 	    if (mesg[DATA] == ERROR_DECO) {
 		ESP_LOGI(MESH_TAG, "error relay worked");
 		err = esp_mesh_send(NULL, &data, MESH_DATA_P2P, NULL, 0);
