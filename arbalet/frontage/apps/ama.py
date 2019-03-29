@@ -108,38 +108,38 @@ class Ama(Fap) :
                 SchedulerState.add_cell(x, y, mac, ind)
             print_flush("Database updated")
 
-        def run(self, params, expires_at=None) :
-            self.start_socket()
-            # get necessary informations (may be shift in __init__ ?)
-            self.rows = SchedulerState.get_rows()
-            self.cols = SchedulerState.get_cols()
-            # get the pixels to address
-            self.pos_unknown = loads(Websock.get_pos_unk()) #Exemple {'@mac1' : ((x,j), 0), ...}}
+        def skip_procedure(self):
+            for key in self.pos_unknown.keys :
+                value = self.pos_unknown[key]
+                pixel = self.pixels.get(key)
+                if pixel is None :
+                    print_flush("ERROR : using skip is not possible")
+                else :
+                    pixel[1] = value[1]
+                    self.pixels[key] = pixel
+                    self.pos_unknown.popitem(key)
+            Websock.send_pos_unk(self.pos_unknown)
+            Websock.send_pixels(self.pixels)
 
+        def wait_to_be_kill(self):
+            self.model.set_all('black')
+            self.send_model()
+            while True:
+                print_flush("Addressing is over...")
+                time.sleep(0.05)
 
-            self.params = params
+        def visual_verification(self):
+            print_flush(SchedulerState.get_pixels_dic())
+            for i in range(self.rows) :
+                for j in range(self.cols) :
+                    self.model.set_pixel(i, j, name_to_rgb('red'))
+                    waiting = 0
+                    while waiting < 10 :
+                        self.send_model()
+                        time.sleep(0.1)
+                        waiting += 1
 
-
-            if (self.params['uapp'] == "true") : # assisted manual addressing : reset the position of all pixels
-                Websock.send_pixels({})
-            else :
-                 # hot assisted readdressing : reattribute the unsued frame indices (get from deconnected pixels) without touching to already addressed pixels
-                 self.deco = loads(Websock.get_deco())
-                 for mac in self.pos_unknown.keys() :
-                     if len(self.deco) > 0 :
-                         # dummy security, should do something in the case of it happenning but dunno what (yet)
-                         pixel_deco = self.deco.popitem()
-                         self.pos_unknown[mac] = ((-1,-1), pixel_deco[1][1])
-                 self.pixels = loads(Websock.get_pixels())
-                 self.pixels['default'] = ((-1,-1), -1)
-                 # TODO : griser les pixels contenus dans self.pixels
-            print_flush(self.pos_unknown) #dummy print
-            #self.pos_unknown = {'12:58:78:74:56:94':((-1, -1), 0), '12:58:78:74:56:95':((-1, -1), 1), '12:58:78:74:56:96':((-1, -1), 2)}#Dummy            #Tels mesh.py to shift in AMA mod
-            print_flush("je change l'etat des esp en ADDR..............................................................;;")
-            # put esp root in the right state
-            Websock.send_esp_state(0)
-            print_flush("Je suis avant la boucle ..................................................................;")
-            #Start the AMA/RaC procedure
+        def addressing_procedure(self):
             iteration = 1
             while (len(self.pos_unknown) != 0) :
                 #AMA/RaC shall continue as long as there are pixels without known position
@@ -178,23 +178,40 @@ class Ama(Fap) :
                     iteration += 1
                 else : # the pixel is reput in the pos_unknown dictionary as its position is false
                         self.pos_unknown[mac] = ((x,y), ind)
-                        #it is a must because without it we could pass the while condition
-                        pass
-                print_flush("WE DID IT!!!!!! One lap completed!!!!!!!!!")
-            self.update_DB() #publish on REDIS and save in DB the new pixels dictionary
-            #Tels mesh.py to shift in COLOR mod
+
+        def reattributing_indexes(sef):
+            self.deco = loads(Websock.get_deco())
+            for mac in self.pos_unknown.keys() :
+                if len(self.deco) > 0 :
+                    # dummy security, should do something in the case of it happenning but dunno what (yet)
+                    pixel_deco = self.deco.popitem()
+                    self.pos_unknown[mac] = ((-1,-1), pixel_deco[1][1])
+            self.pixels = loads(Websock.get_pixels())
+            self.pixels['default'] = ((-1,-1), -1)
+
+        def run(self, params, expires_at=None) :
+            self.start_socket()
+            # get necessary informations (may be shift in __init__ ?)
+            self.rows = SchedulerState.get_rows()
+            self.cols = SchedulerState.get_cols()
+            # get the pixels to address
+            self.pos_unknown = loads(Websock.get_pos_unk()) #Exemple {'@mac1' : ((x,j), 0), ...}}
+            self.params = params
+            if (self.params['mode'] == "ama") : # assisted manual addressing : reset the position of all pixels
+                Websock.send_pixels({})
+            elif (self.params['mode'] == "har") :
+                 # hot assisted readdressing : reattribute the unsued frame indexes (get from deconnected pixels) without touching to already addressed pixels
+                 self.reattributing_indexes()
+                 # TODO : griser les pixels contenus dans self.pixels
+            #Put esp root in ADDR or CONF state
+            Websock.send_esp_state(0)
+            if self.params['mode'] == "skip" :
+                self.skip_procedure()
+            else :
+                self.addressing_procedure()
+            #publish on REDIS and save in DB the new pixels dictionary
+            self.update_DB()
+            #Put ESPs in COLOR state
             Websock.send_esp_state(1)
-            print_flush(SchedulerState.get_pixels_dic())
-            for i in range(self.rows) :
-                for j in range(self.cols) :
-                    self.model.set_pixel(i, j, name_to_rgb('red'))
-                    waiting = 0
-                    while waiting < 10 :
-                        self.send_model()
-                        time.sleep(0.1)
-                        waiting += 1
-            self.model.set_all('black')
-            self.send_model()
-            while True:
-                print_flush("Addressing is over...")
-                time.sleep(0.05)
+            self.visual_verification()
+            self.wait_to_be_kill()

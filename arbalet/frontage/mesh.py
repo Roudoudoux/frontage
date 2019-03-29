@@ -17,6 +17,21 @@ from server.flaskutils import print_flush
 
 import struct
 
+def matching_keys(dico1, dico2):
+    if (len(dico1) == len(dico2)):
+        for key in dico1.keys() :
+            if (dico2.get(key) == None):
+                return False
+        for key in dico1.keys() :
+            val1 = dico1[key]
+            val2 = dico2[key]
+            val2[1] = val1[1]
+            dico2[key] = val2
+        return True
+    else :
+        return False
+
+# fill the array according to the chosen mod (ama/prod) with the colors matching the pixels position stock in dico
 def filling_array(array, colors, dico, ama):
     m = len(colors[0])
     n = len(colors)
@@ -37,6 +52,7 @@ def filling_array(array, colors, dico, ama):
         array[c.DATA + 3 + ind*3] = min(255, max(0, int(v*255)))
         array[c.DATA + 4 + ind*3] = min(255, max(0, int(b*255)))
 
+# formating the color frame
 def msg_color(colors, ama= 1):
     l = Mesh.comp
     m = len(colors[0])
@@ -78,7 +94,10 @@ class Listen(Thread) :
         for val in Mesh.pixels :
             ((i,j), ind) = Mesh.pixels.get(val)
             card_list[ind] = ((i, j), val)
-        #Il faut trier les valeurs, et les envoyer par indice croissant. L'algo des cartes ESP ne se met pas à jour correctement sinon.
+        for val in Listen.deco :
+            ((i,j), ind) = Listen.deco.get(val)
+            card_list[ind] = ((i, j), val)
+        #Values have to be sorted and send in croissant order. It is required by the ESP algorithm
         for ind, value in enumerate(card_list) :
             ((i, j), val) = value
             print_flush("on envoie INSTALL pour {}".format(ind))
@@ -149,9 +168,9 @@ class Listen(Thread) :
                 self.com.mesh_conn.send(array)
                 print_flush("acquitted")
             elif ( data[c.TYPE] == c.BEACON)  :
-                print_flush("BEACON : %d-%d-%d-%d-%d-%d" % (int(data[c.DATA]), int(data[c.DATA+1]), int(data[c.DATA+2]), int(data[c.DATA+3]), int(data[c.DATA+4]), int(data[c.DATA+5])))
+                # print_flush("BEACON : %d-%d-%d-%d-%d-%d" % (int(data[c.DATA]), int(data[c.DATA+1]), int(data[c.DATA+2]), int(data[c.DATA+3]), int(data[c.DATA+4]), int(data[c.DATA+5])))
                 mac = array_to_mac(data[c.DATA:c.DATA+6])
-                print_flush("le pixel ayant l'adresse {0} se déclare".format(mac))
+                print_flush("Pixel {0} is declaring itself".format(mac))
                 if (Mesh.comp == 0):
                     Mesh.mac_root= mac
                 if Listen.unk.get(mac) != None :
@@ -162,7 +181,7 @@ class Listen(Thread) :
                 array = msg_install(data, Mesh.comp)
                 Mesh.comp += 1
                 self.com.mesh_conn.send(array)
-                # if Mesh.comp == Mesh.required_amount :
+                # if Mesh.comp == Mesh.required_amount and matching_keys(Listen.unk, Mesh.pixels):
                 #     self.com.mesh_conn.send(msg_ama(c.AMA_INIT))
                 #     self.com.mesh_conn.send(msg_ama(c.AMA_COLOR))
             else :
@@ -301,9 +320,15 @@ class Mesh(Thread):
                 Mesh.ama = 1
                 Mesh.addressed = False
                 Mesh.print_mesh_info()
-                Websock.send_pos_unk(Listen.unk)
-                array = msg_readressage(Mesh.mac_root,c.STATE_ADDR)
+                array = msg_readressage(Mesh.mac_root,c.STATE_CONF)
                 self.mesh_conn.send(array)
+                for mac in Listen.unk.keys() :
+                    if len(Listen.deco) > 0 :
+                        pixel_deco = Listen.deco.popitem()
+                        Listen.unk[mac] = ((-1,-1), pixel_deco[1][1])
+                        array = msg_install_from_mac(mac, pixel_deco[1][1])
+                        self.mesh_conn.send(array)
+                Websock.send_pos_unk(Listen.unk)
                 print_flush("FIN Mesh.ama = 3")
         elif (Mesh.ama == 1) :
             self.ama_care()
