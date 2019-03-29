@@ -24,8 +24,9 @@ from server.flaskutils import print_flush
 class Ama(Fap) :
         PLAYABLE = True
         ACTIVATED = True
-        PARAMS_LIST = {'uapp': ['true',
-                                'false']}
+        PARAMS_LIST = {'mode': ['ama',
+                                'rac',
+                                'skip']}
 
         def __init__(self, username, userid) :
                 Fap.__init__(self, username, userid)
@@ -100,7 +101,7 @@ class Ama(Fap) :
             Websock.send_deco(self.deco)
             Websock.send_get_deco()
             #Update DB
-            if (self.params['uapp'] == 'true') :
+            if (self.params['mode'] == 'ama') :
                 SchedulerState.drop_dic()
                 print_flush("Database cleaned")
             while (len(self.pixels) != 0) :
@@ -189,6 +190,10 @@ class Ama(Fap) :
             self.pixels = loads(Websock.get_pixels())
             self.pixels['default'] = ((-1,-1), -1)
 
+
+        def send_pixel_down(self, positions):
+            Websock.send_data(positions, 'Pixel down message', self.username, self.userid)
+
         def run(self, params, expires_at=None) :
             self.start_socket()
             # get necessary informations (may be shift in __init__ ?)
@@ -199,9 +204,16 @@ class Ama(Fap) :
             self.params = params
             if (self.params['mode'] == "ama") : # assisted manual addressing : reset the position of all pixels
                 Websock.send_pixels({})
-            elif (self.params['mode'] == "har") :
+            elif (self.params['mode'] == "rac") :
                  # hot assisted readdressing : reattribute the unsued frame indexes (get from deconnected pixels) without touching to already addressed pixels
+                 self.deco = loads(Websock.get_deco())
+                 array = []
+                 for key in self.deco.keys():
+                     value = self.deco[key]
+                     array += [value[0]]
+
                  self.reattributing_indexes()
+                 send_pixel_down(array)
                  # TODO : griser les pixels contenus dans self.pixels
             #Put esp root in ADDR or CONF state
             Websock.send_esp_state(0)
