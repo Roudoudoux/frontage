@@ -70,5 +70,14 @@ config MESH_ROUTE_TABLE_SIZE
         default 50
         help
             The number of devices over the network(max: 300).
-endmenu
 
+
+config MESH_DEBUG_LOG
+       int "Mesh debug log for monitoring"
+       	   range 0 1
+	   default 0
+	   help
+		Enable logs display while monitoring (0 : no log, 1 : logs)
+
+
+endmenu

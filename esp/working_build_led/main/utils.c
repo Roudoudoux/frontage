@@ -26,7 +26,8 @@ void  copy_buffer(uint8_t * a, uint8_t * b, int size) {
 }
 
 /**
- * @brief Retrieve the mac adress from the data buffer */
+ * @brief Retrieve the mac adress from the data buffer
+ */
 void get_mac(uint8_t * msg, uint8_t * mac){
     int start = -2;
     switch(type_mesg(msg)){
@@ -53,7 +54,9 @@ void get_mac(uint8_t * msg, uint8_t * mac){
 	return ;
     }
     if (start == -2) {
+#if CONFIG_MESH_DEBUG_LOG
 	ESP_LOGE(MESH_TAG, "unknown msg type");
+#endif
     }
 }
 

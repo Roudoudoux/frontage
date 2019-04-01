@@ -20,6 +20,7 @@ void copy_buffer(uint8_t * from, uint8_t * to, int n);
 /**
  * @brief Retrieve the mac adress from the data buffer */
 void get_mac(uint8_t * msg, uint8_t * mac);
+
 /**
  * @brief Check if the mac addresses match
  */

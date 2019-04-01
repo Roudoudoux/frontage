@@ -7,21 +7,24 @@
 strand_t strand[1] = {{.rmtChannel = 1, .gpioNum = 15, .ledType = LED_WS2812B_V3, .brightLimit = 32, .numPixels =  20, .pixels = NULL, ._stateVars = NULL}};//Array is normal, pls don't edit
 
 void gpioSetup(int gpioNum, int gpioMode, int gpioVal) {
-  #if defined(ARDUINO) && ARDUINO >= 100
+#if defined(ARDUINO) && ARDUINO >= 100
     pinMode (gpioNum, gpioMode);
     digitalWrite (gpioNum, gpioVal);
-  #elif defined(ESP_PLATFORM)
+#elif defined(ESP_PLATFORM)
     gpio_num_t gpioNumNative = (gpio_num_t)(gpioNum);
     gpio_mode_t gpioModeNative = (gpio_mode_t)(gpioMode);
     gpio_pad_select_gpio(gpioNumNative);
     gpio_set_direction(gpioNumNative, gpioModeNative);
     gpio_set_level(gpioNumNative, gpioVal);
-  #endif
+#endif
 }
 
 void init_leds() {
     gpioSetup(15, OUTPUT, LOW);
-    ESP_LOGI(MESH_TAG, "Led init : %d", digitalLeds_initStrands(strand, 1));
+    int res = digitalLeds_initStrands(strand, 1);
+#if CONFIG_MESH_DEBUG_LOG
+    ESP_LOGI(MESH_TAG, "Led init : %d", res);
+#endif
 }
 
 void display_color(uint8_t buf[FRAME_SIZE]) {
@@ -29,8 +32,10 @@ void display_color(uint8_t buf[FRAME_SIZE]) {
     uint8_t color[3];
     copy_buffer(color, buf+DATA+2, 3);
     for (uint16_t i = 0; i < pStrand->numPixels; i++) {
-      pStrand->pixels[i] = pixelFromRGB(color[0], color[1], color[2]);
+	pStrand->pixels[i] = pixelFromRGB(color[0], color[1], color[2]);
     }
     digitalLeds_updatePixels(pStrand);
-    //ESP_LOGI(MESH_TAG, "Diplay color triplet : (%d, %d, %d)", color[0], color[1], color[2]);
+#if CONFIG_MESH_DEBUG_LOG
+    ESP_LOGI(MESH_TAG, "Diplay color triplet : (%d, %d, %d)", color[0], color[1], color[2]);
+#endif
 }

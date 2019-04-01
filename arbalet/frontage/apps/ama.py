@@ -19,6 +19,8 @@ from db.base import session_factory
 from json import dumps
 from numpy import array
 
+from time import sleep
+
 from server.flaskutils import print_flush
 
 class Ama(Fap) :
@@ -95,13 +97,14 @@ class Ama(Fap) :
                 self.pixels['default'] = default
 
         def update_DB(self) :
-            self.pixels.pop('default')
+            if self.pixels.get('default') :
+                self.pixels.pop('default')
             Websock.send_pixels(self.pixels)
             Websock.send_pos_unk({})
             Websock.send_deco(self.deco)
             Websock.send_get_deco()
             #Update DB
-            if (self.params['mode'] == 'ama') :
+            if (self.params['mode'] == 'ama' or self.params['mode'] == 'skip') :
                 SchedulerState.drop_dic()
                 print_flush("Database cleaned")
             while (len(self.pixels) != 0) :
@@ -110,15 +113,19 @@ class Ama(Fap) :
             print_flush("Database updated")
 
         def skip_procedure(self):
-            for key in self.pos_unknown.keys :
+            self.pixels = SchedulerState.get_pixels_dic()
+            print_flush("Before readressing : {0} - {1}".format(self.pixels, self.pos_unknown))
+            delete = [key for key in self.pos_unknown]
+            for key in delete :
                 value = self.pos_unknown[key]
                 pixel = self.pixels.get(key)
                 if pixel is None :
                     print_flush("ERROR : using skip is not possible")
                 else :
-                    pixel[1] = value[1]
+                    pixel = (pixel[0], value[1])
                     self.pixels[key] = pixel
-                    self.pos_unknown.popitem(key)
+                    self.pos_unknown.pop(key)
+            print_flush("After readressing : {0} - {1}".format(self.pixels, self.pos_unknown))
             Websock.send_pos_unk(self.pos_unknown)
             Websock.send_pixels(self.pixels)
 
@@ -178,9 +185,9 @@ class Ama(Fap) :
                     #administrator ensures the rightfullness of the coordonate
                     iteration += 1
                 else : # the pixel is reput in the pos_unknown dictionary as its position is false
-                        self.pos_unknown[mac] = ((x,y), ind)
+                    self.pos_unknown[mac] = ((x,y), ind)
 
-        def reattributing_indexes(sef):
+        def reattributing_indexes(self):
             self.deco = loads(Websock.get_deco())
             for mac in self.pos_unknown.keys() :
                 if len(self.deco) > 0 :
@@ -192,6 +199,8 @@ class Ama(Fap) :
 
 
         def send_pixel_down(self, positions):
+            print_flush("Sending positions to frontend...")
+            print_flush(positions)
             Websock.send_data(positions, 'Pixel down message', self.username, self.userid)
 
         def run(self, params, expires_at=None) :
@@ -202,23 +211,24 @@ class Ama(Fap) :
             # get the pixels to address
             self.pos_unknown = loads(Websock.get_pos_unk()) #Exemple {'@mac1' : ((x,j), 0), ...}}
             self.params = params
-            if (self.params['mode'] == "ama") : # assisted manual addressing : reset the position of all pixels
+            print_flush("Launched AMA app with {0} parameter".format(self.params['mode']))
+            if (self.params['mode'] == 'ama') : # assisted manual addressing : reset the position of all pixels
                 Websock.send_pixels({})
-            elif (self.params['mode'] == "rac") :
+            elif (self.params['mode'] == 'rac') :
                  # hot assisted readdressing : reattribute the unsued frame indexes (get from deconnected pixels) without touching to already addressed pixels
                  self.deco = loads(Websock.get_deco())
                  array = []
                  for key in self.deco.keys():
                      value = self.deco[key]
                      array += [value[0]]
-
+                 self.send_pixel_down(array)
                  self.reattributing_indexes()
-                 send_pixel_down(array)
                  # TODO : griser les pixels contenus dans self.pixels
             #Put esp root in ADDR or CONF state
             Websock.send_esp_state(0)
-            if self.params['mode'] == "skip" :
+            if self.params['mode'] == 'skip' :
                 self.skip_procedure()
+                sleep(1)
             else :
                 self.addressing_procedure()
             #publish on REDIS and save in DB the new pixels dictionary

@@ -33,18 +33,16 @@ bool is_asleep = false;
 uint16_t current_sequence = 0;
 uint8_t buf_err[FRAME_SIZE] = {0};
 int err_addr_req = 0;
+int err_prev_state = 0;
 
-/*Variable du socket */
+/*Socket's variable */
 struct sockaddr_in tcpServerAddr;
 struct sockaddr_in tcpServerReset;
 uint32_t sock_fd;
 bool is_server_connected = false;
 
-/* Table de routage Arbalet Mesh*/
-//struct node route_table[CONFIG_MESH_ROUTE_TABLE_SIZE];
+/* Logical routing table*/
 int route_table_size = 0;
-//static int num[CONFIG_MESH_ROUTE_TABLE_SIZE];
-unsigned int ctr = 0;
 
 /*******************************************************
  *                Function Declarations
@@ -70,7 +68,9 @@ void add_route_table(uint8_t * mac, int pos){
 	while (! same_mac(mac, route_table[i].card.addr) && i < route_table_size) {
 	    i++;
 	} if (i == route_table_size) { // Remplacement sans substitution
+#if CONFIG_MESH_DEBUG_LOG
 	    ESP_LOGW(MESH_TAG, "MAC not in route_table, replaced old MAC value by new");
+#endif
 	    copy_mac(mac, route_table[pos].card.addr);
 	    route_table[pos].state = true;
 	    return;
@@ -79,7 +79,9 @@ void add_route_table(uint8_t * mac, int pos){
 	copy_mac(mac, route_table[pos].card.addr);
     }
     for (int j = 0; j < route_table_size; j++) {
+#if CONFIG_MESH_DEBUG_LOG
 	ESP_LOGW(MESH_TAG, "Addr %d : "MACSTR"", j, MAC2STR(route_table[j].card.addr));
+#endif
     }
 }
 
@@ -89,7 +91,9 @@ void disable_node(uint8_t *mac) {
 	i++;
     }
     if (i == route_table_size) {
+#if CONFIG_MESH_DEBUG_LOG
 	ESP_LOGE(MESH_TAG, "Request for disabling MAC not in routing table.");
+#endif
 	return;
     }
     route_table[i].state = false;
@@ -101,11 +105,15 @@ void enable_node(uint8_t *mac) {
 	i++;
     }
     if (i == route_table_size) {
+#if CONFIG_MESH_DEBUG_LOG
 	ESP_LOGE(MESH_TAG, "Request for disabling MAC not in routing table.");
+#endif
 	return;
     }
     route_table[i].state = true;
+#if CONFIG_MESH_DEBUG_LOG
     ESP_LOGI(MESH_TAG, ""MACSTR" : %d", MAC2STR(route_table[i].card.addr), route_table[i].state);
+#endif
 }
 
 /**
@@ -115,17 +123,23 @@ void connect_to_server() {
 
     sock_fd = socket(AF_INET, SOCK_STREAM, 0); // Ouverture du socket avec le serveur.
     if (sock_fd == -1) {
+#if CONFIG_MESH_DEBUG_LOG
 	ESP_LOGE(MESH_TAG, "Socket_fail");
+#endif
 	return;
     }
     int ret = connect(sock_fd, (struct sockaddr *)&tcpServerAddr, sizeof(struct sockaddr));
     if (ret < 0 && errno != 119) {
 	perror("Erreur socket : ");
+#if CONFIG_MESH_DEBUG_LOG
 	ESP_LOGE(MESH_TAG, "Connection fail");
+#endif
 	close(sock_fd);
 	vTaskDelay(5000 / portTICK_PERIOD_MS); //Stop for 5s after each try
     }else {
+#if CONFIG_MESH_DEBUG_LOG
 	ESP_LOGW(MESH_TAG, "Connected to Server");
+#endif
 	xTaskCreate(server_reception, "SERRX", 6000, NULL, 5, NULL);
 	is_server_connected = true;
 	if (state != INIT) {
@@ -133,7 +147,7 @@ void connect_to_server() {
 	    buf_send[VERSION] = SOFT_VERSION;
 	    buf_send[TYPE] = ERROR;
 	    buf_send[DATA] = ERROR_ROOT;
-	    buf_send[DATA+1] = state & (route_table_size << 4);
+	    buf_send[DATA+1] = state | (route_table_size << 4);
 	    copy_buffer(buf_send + DATA + 2, my_mac, 6);
 	    int head = write_txbuffer(buf_send, FRAME_SIZE);
 	    xTaskCreate(server_emission, "SERTX", 3072, (void *) head, 5, NULL);
@@ -170,21 +184,25 @@ void esp_mesh_state_machine(void * arg) {
 	    vTaskDelay(1 / portTICK_PERIOD_MS);
 	    break;
 	default :
+#if CONFIG_MESH_DEBUG_LOG
 	    ESP_LOGE(MESH_TAG, "ESP entered unknown state %d", state);
+#else
+	    abort();
+#endif
 	}
     }
     vTaskDelete(NULL);
 }
 
 /**
- *@brief Makes the Builtin blue led blink as many times as the layer number
+ *@brief Makes the Builtin blue led blink as many times as the layer number : Debug.
  */
 void blink_task(void *pvParameter)
 {
     gpio_pad_select_gpio(BLINK_GPIO);
-	/* Set the GPIO as a push/pull output */
+    /* Set the GPIO as a push/pull output */
     gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
-	/* Blink off (output low) */
+    /* Blink off (output low) */
     while(1) {
 	for (int i = 0; i < state; i++) {
 	    gpio_set_level(BLINK_GPIO, 1);
@@ -194,24 +212,6 @@ void blink_task(void *pvParameter)
 	    vTaskDelay(200 / portTICK_PERIOD_MS);
 	}
 	vTaskDelay(2000 / portTICK_PERIOD_MS);
-    }
-}
-
-void dummy_task(void *pvParameter)
-{
-    while(1) {
-	ctr++;
-	vTaskDelay(10);
-    }
-}
-
-void CPU_load(void * pvParameter)
-{
-    while(1) {
-	unsigned int cycles = ctr;
-	ESP_LOGI(MESH_TAG, "CPU LOAD = %d percent\n", (int)(((float)cycles/100)*100));
-	ctr = 0;
-	vTaskDelay(1000/portTICK_PERIOD_MS);
     }
 }
 
@@ -226,20 +226,35 @@ esp_err_t esp_mesh_comm_p2p_start(void)
 	xTaskCreate(mesh_reception, "ESPRX", 3072, NULL, 5, NULL);
 	xTaskCreate(esp_mesh_state_machine, "STMC", 3072, NULL, 5, NULL);
 	xTaskCreate(blink_task, "blink_task", 3072, NULL, 5, NULL);
-	//xTaskCreate(CPU_load, "CPUT", 64*configMINIMAL_STACK_SIZE, NULL, 5, NULL);
-	//xTaskCreate(dummy_task, "DMYT", configMINIMAL_STACK_SIZE, NULL, 0, NULL);
     }
     return ESP_OK;
 }
 
 void error_child_disconnected(uint8_t *mac) {
+#if CONFIG_MESH_DEBUG_LOG
     ESP_LOGE(MESH_TAG, "Sent frame for Child Disconnection");
+#endif
     uint8_t buf_send[FRAME_SIZE];
     buf_send[VERSION] = SOFT_VERSION;
     buf_send[TYPE] = ERROR;
     buf_send[DATA] = ERROR_DECO;
     buf_send[DATA+1] = 0;
     copy_buffer(buf_send + DATA + 2, mac, 6);
+    int head = write_txbuffer(buf_send, FRAME_SIZE);
+#if CONFIG_MESH_DEBUG_LOG
+    ESP_LOGW(MESH_TAG, "Head received for error transmission : %d", head);
+#endif
+    xTaskCreate(mesh_emission, "ESPTX", 3072, (void *) head, 5, NULL);
+}
+
+void send_beacon_on_disco() {
+#if CONFIG_MESH_DEBUG_LOG
+    ESP_LOGE(MESH_TAG, "Sent beacon on reconnection to mesh network");
+#endif
+    uint8_t buf_send[FRAME_SIZE];
+    buf_send[VERSION] = SOFT_VERSION;
+    buf_send[TYPE] = BEACON;
+    copy_mac(my_mac, buf_send+DATA);
     int head = write_txbuffer(buf_send, FRAME_SIZE);
     xTaskCreate(mesh_emission, "ESPTX", 3072, (void *) head, 5, NULL);
 }
@@ -291,7 +306,7 @@ void mesh_event_handler(mesh_event_t event)
                  event.info.no_parent.scan_times);
         /* TODO handler for the failure */
         break;
-    case MESH_EVENT_PARENT_CONNECTED:
+    case MESH_EVENT_PARENT_CONNECTED: //TODO : send BEACON if last_layer != 0
         esp_mesh_get_id(&id);
         mesh_layer = event.info.connected.self_layer;
         memcpy(&mesh_parent_addr.addr, event.info.connected.connected.bssid, 6);
@@ -300,6 +315,9 @@ void mesh_event_handler(mesh_event_t event)
                  last_layer, mesh_layer, MAC2STR(mesh_parent_addr.addr),
                  esp_mesh_is_root() ? "<ROOT>" :
                  (mesh_layer == 2) ? "<layer2>" : "", MAC2STR(id.addr));
+	if (last_layer != 0 && !esp_mesh_is_root()) {
+	    send_beacon_on_disco();
+	}
         last_layer = mesh_layer;
         is_mesh_connected = true;
         if (esp_mesh_is_root()) {
@@ -423,13 +441,6 @@ void app_main(void)
     wifi_init_config_t config = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&config));
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_FLASH));
-    /*wifi_config_t sta_config = {
-	.sta = {
-	    .ssid = CONFIG_MESH_ROUTER_SSID,
-	    .password = CONFIG_MESH_ROUTER_PASSWD
-	}
-    };
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &sta_config));*/
     ESP_ERROR_CHECK(esp_wifi_start());
     /*  mesh initialization */
     ESP_ERROR_CHECK(esp_mesh_init());
@@ -458,7 +469,9 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_mesh_set_config(&cfg));
     /* Initialisation de l'adresse MAC*/
     esp_efuse_mac_get_default(my_mac);
+#if CONFIG_MESH_DEBUG_LOG
     ESP_LOGI(MESH_TAG, "my mac : %d-%d-%d-%d-%d-%d", my_mac[0], my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
+#endif
     /* mesh start */
     ESP_ERROR_CHECK(esp_mesh_start());
     ESP_LOGI(MESH_TAG, "mesh starts successfully, heap:%d, %s\n",  esp_get_free_heap_size(),
@@ -466,7 +479,7 @@ void app_main(void)
     /* Socket creation */
     memset(&tcpServerAddr, 0, sizeof(tcpServerAddr));
     tcpServerAddr.sin_family = AF_INET;
-    tcpServerAddr.sin_addr.s_addr = inet_addr("10.42.0.1");//("192.168.0.101");
+    tcpServerAddr.sin_addr.s_addr = inet_addr("10.42.0.1");
     tcpServerAddr.sin_len = sizeof(tcpServerAddr);
     tcpServerAddr.sin_port = htons(9988);
     /* Strand Init (LED Ribbon) */

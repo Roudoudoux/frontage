@@ -35,28 +35,29 @@ def matching_keys(dico1, dico2):
 def filling_array(array, colors, dico, ama):
     m = len(colors[0])
     n = len(colors)
+    #print_flush("Matrix dim : {0}, {1}".format(m, n))
     for val in dico.values():#Concat avec Listen.unk?
         ((i,j), ind) = val
+        if ind < Mesh.comp :
         # print_flush("val =", val, "ama = ", ama)
-        if (ama == 0) :#La matrice est un tabular
-            r = colors[int(ind/m)][int(ind % m)][0]
-            v = colors[int(ind/m)][int(ind % m)][1]
-            b = colors[int(ind/m)][int(ind % m)][2]
-        elif ( i != -1 and j != -1 and i < n and j < m)  : #The pixel is addressed and within the model boundaries
-            r = colors[i][j][0]
-            v = colors[i][j][1]
-            b = colors[i][j][2]
-        else: # unkown value
-            r= v= b= 0
-        array[c.DATA + 2 + ind*3] = min(255, max(0, int(r*255)))
-        array[c.DATA + 3 + ind*3] = min(255, max(0, int(v*255)))
-        array[c.DATA + 4 + ind*3] = min(255, max(0, int(b*255)))
+            if (ama == 0) :#La matrice est un tabular
+                r = colors[int(ind/m)][int(ind % m)][0]
+                v = colors[int(ind/m)][int(ind % m)][1]
+                b = colors[int(ind/m)][int(ind % m)][2]
+            elif ( i != -1 and j != -1 and i < n and j < m)  : #The pixel is addressed and within the model boundaries
+                r = colors[i][j][0]
+                v = colors[i][j][1]
+                b = colors[i][j][2]
+            else: # unkown value
+                r= v= b= 0
+            array[c.DATA + 2 + ind*3] = min(255, max(0, int(r*255)))
+            array[c.DATA + 3 + ind*3] = min(255, max(0, int(v*255)))
+            array[c.DATA + 4 + ind*3] = min(255, max(0, int(b*255)))
 
 # formating the color frame
 def msg_color(colors, ama= 1):
+    #print_flush("Entering function")
     l = Mesh.comp
-    m = len(colors[0])
-    n = len(colors)
     array = bytearray(l*3 + 4 + ceil((l*3 + 4)/7))
     array[c.VERSION] = c.SOFT_VERSION
     array[c.TYPE] = c.COLOR
@@ -64,8 +65,11 @@ def msg_color(colors, ama= 1):
     array[c.DATA] = Mesh.sequence // 256
     array[c.DATA+1] = Mesh.sequence % 256
     filling_array(array, colors, Mesh.pixels, ama)
+    #print_flush("Filled array")
     if (Mesh.ama == 1) :
         filling_array(array,colors,Listen.unk, ama)
+        #print_flush("Filled array for UNK")
+    #print_flush("Calculating CRC...")
     crc_get(array)
     return array
 
@@ -284,6 +288,7 @@ class Mesh(Thread):
             Mesh.print_mesh_info()
         if Mesh.comp < Mesh.required_amount :
             return
+        #print_flush("Entered callback corps")
         if Websock.should_get_deco() :
             Listen.deco = json.loads(Websock.get_deco())
         b = body.decode('ascii')
@@ -320,21 +325,30 @@ class Mesh(Thread):
                 Mesh.ama = 1
                 Mesh.addressed = False
                 Mesh.print_mesh_info()
-                array = msg_readressage(Mesh.mac_root,c.STATE_CONF)
+                array = msg_readressage(Mesh.mac_root, c.STATE_CONF)
                 self.mesh_conn.send(array)
+                print_flush(Listen.unk.keys(), Listen.deco)
                 for mac in Listen.unk.keys() :
                     if len(Listen.deco) > 0 :
                         pixel_deco = Listen.deco.popitem()
+                        print_flush("Adding new element")
+                        print_flush(pixel_deco)
+                        print_flush("Inserted unknwon card at {0}".format(pixel_deco[1][1]))
                         Listen.unk[mac] = ((-1,-1), pixel_deco[1][1])
                         array = msg_install_from_mac(mac, pixel_deco[1][1])
                         self.mesh_conn.send(array)
                 Websock.send_pos_unk(Listen.unk)
+                Mesh.print_mesh_info()
+                array = msg_ama(c.AMA_INIT)
+                self.mesh_conn.send(array)
                 print_flush("FIN Mesh.ama = 3")
         elif (Mesh.ama == 1) :
             self.ama_care()
         elif (Mesh.addressed) :
+            #print_flush("Sending color")
             array = msg_color(self.model._model)
             self.mesh_conn.send(array)
+            #print_flush("Colors send")
         else :
             print_flush("{} : It is not the time to send colors".format(Mesh.consummed))
 

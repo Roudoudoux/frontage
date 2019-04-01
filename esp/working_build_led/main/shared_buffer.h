@@ -18,7 +18,7 @@ int write_txbuffer(uint8_t * data, uint16_t size);
 void read_rxbuffer(uint8_t * data);
 
 /**
- *
+ * @brief Read the data on the transmission pipe, and write it in the databuffer. Update the writable size of the pipe.
  */
 void read_txbuffer(uint8_t * data, int arg);
 #endif

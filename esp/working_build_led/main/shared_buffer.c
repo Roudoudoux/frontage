@@ -5,7 +5,7 @@
 #include "utils.h"
 
 
-/* Buffer de communication */
+/* Communication buffer */
 #define RXB_SIZE 50000
 static uint8_t reception_buffer[RXB_SIZE]; // Reception pipe containing all received message
 static int rxbuf_free_size = RXB_SIZE;
@@ -26,72 +26,62 @@ void write_rxbuffer(uint8_t * data, uint16_t size){
     while (rxbuf_free_size < size );
     pthread_mutex_lock(&rxbuf_read);
     if (rxbuf_free_size < size ){
-      pthread_mutex_unlock(&rxbuf_read);
-      goto loop;
+	pthread_mutex_unlock(&rxbuf_read);
+	goto loop;
     }
     pthread_mutex_lock(&rxbuf_write);
     rxbuf_free_size = rxbuf_free_size - size;
     int head = rxbuf_head;
     rxbuf_head = (rxbuf_head + size) % RXB_SIZE;
-    ESP_LOGI(MESH_TAG, "Wrote message of size %d and from %d tp %d on rx_buf\n", size, head, rxbuf_head);
-    //ESP_LOGI(MESH_TAG, "rxbuf_free_size = %d, rxbuf_head = %d, rxbuf_tail = %d", rxbuf_free_size, rxbuf_head, rxbuf_tail);
     pthread_mutex_unlock(&rxbuf_write);
     for(int i = 0; i < size; i++){
-      reception_buffer[(head + i) % RXB_SIZE] = data[i];
+	reception_buffer[(head + i) % RXB_SIZE] = data[i];
     }
     pthread_mutex_unlock(&rxbuf_read);
 }
 
 int write_txbuffer(uint8_t * data, uint16_t size){
-looptx:
-   while (txbuf_free_size < size );
-   pthread_mutex_lock(&txbuf_read);
-   if (txbuf_free_size < size ){
-     pthread_mutex_unlock(&txbuf_read);
-     goto looptx;
-   }
-   pthread_mutex_lock(&txbuf_write);
-   txbuf_free_size = txbuf_free_size - size;
-   int head = txbuf_head;
-   txbuf_head = (txbuf_head + size) % TXB_SIZE;
-   ESP_LOGI(MESH_TAG, "Wrote message of size %d and from %d tp %d on tx_buf\n", size, head, txbuf_head);
-   //ESP_LOGI(MESH_TAG, "txbuf_free_size = %d, txbuf_head = %d", txbuf_free_size, txbuf_head);
-   pthread_mutex_unlock(&txbuf_write);
-   for(int i = 0; i < size; i++) {
-       transmission_buffer[(head + i) % TXB_SIZE] = data[i];
-   }
-   pthread_mutex_unlock(&txbuf_read);
-   return head;
+ looptx:
+    while (txbuf_free_size < size );
+    pthread_mutex_lock(&txbuf_read);
+    if (txbuf_free_size < size ){
+	pthread_mutex_unlock(&txbuf_read);
+	goto looptx;
+    }
+    pthread_mutex_lock(&txbuf_write);
+    txbuf_free_size = txbuf_free_size - size;
+    int head = txbuf_head;
+    txbuf_head = (txbuf_head + size) % TXB_SIZE;
+    pthread_mutex_unlock(&txbuf_write);
+    for(int i = 0; i < size; i++) {
+	transmission_buffer[(head + i) % TXB_SIZE] = data[i];
+    }
+    pthread_mutex_unlock(&txbuf_read);
+    return head;
 }
 
 void read_rxbuffer(uint8_t * data) {
-  pthread_mutex_lock(&rxbuf_read);
-  if (rxbuf_free_size != RXB_SIZE) {
-    int type = get_size(reception_buffer[(rxbuf_tail+TYPE) % RXB_SIZE]);
-    int temp = rxbuf_tail;
-    for (int i = 0; i < type; i++) {
-      data[i] = reception_buffer[(rxbuf_tail + i) % RXB_SIZE];
+    pthread_mutex_lock(&rxbuf_read);
+    if (rxbuf_free_size != RXB_SIZE) {
+	int type = get_size(reception_buffer[(rxbuf_tail+TYPE) % RXB_SIZE]);
+	for (int i = 0; i < type; i++) {
+	    data[i] = reception_buffer[(rxbuf_tail + i) % RXB_SIZE];
+	}
+	rxbuf_tail = (rxbuf_tail + type) % RXB_SIZE;
+	rxbuf_free_size = rxbuf_free_size + type;
+    } else {
+	pthread_mutex_unlock(&rxbuf_read);
+	data[TYPE] = -2;
+	return;
     }
-    rxbuf_tail = (rxbuf_tail + type) % RXB_SIZE;
-    rxbuf_free_size = rxbuf_free_size + type;
-    ESP_LOGI(MESH_TAG, "Read message of size %d and type %d from %d tp %d\n", type, reception_buffer[(temp+TYPE) % RXB_SIZE], temp, rxbuf_tail);
-    //ESP_LOGI(MESH_TAG, "rxbuf_free_size = %d, rxbuf_head = %d, rxbuf_tail = %d", rxbuf_free_size, rxbuf_head, rxbuf_tail);
-  } else {
-    //ESP_LOGI(MESH_TAG, "nothing to read");
     pthread_mutex_unlock(&rxbuf_read);
-    data[TYPE] = -2;
-    return;
-  }
-  pthread_mutex_unlock(&rxbuf_read);
 }
 
 void read_txbuffer(uint8_t * data, int head){
-  pthread_mutex_lock(&txbuf_read);
-  for (int i = 0; i < FRAME_SIZE; i++) {
-      data[i] = transmission_buffer[(head + i) % TXB_SIZE];
-  }
-  //copy_buffer(data, transmission_buffer + head, FRAME_SIZE);
-  txbuf_free_size = txbuf_free_size + FRAME_SIZE;
-  //ESP_LOGI(MESH_TAG, "txbuf_free_size = %d, txbuf_head = %d", txbuf_free_size, txbuf_head);
-  pthread_mutex_unlock(&txbuf_read);
+    pthread_mutex_lock(&txbuf_read);
+    for (int i = 0; i < FRAME_SIZE; i++) {
+	data[i] = transmission_buffer[(head + i) % TXB_SIZE];
+    }
+    txbuf_free_size = txbuf_free_size + FRAME_SIZE;
+    pthread_mutex_unlock(&txbuf_read);
 }

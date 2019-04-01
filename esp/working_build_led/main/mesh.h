@@ -12,11 +12,7 @@
 
 #define TIME_SLEEP 5 //time in seconds
 #define SOFT_VERSION 1
-#define SEQU_SEUIL 65000
-// If root is disconnected, on re-election :
-//Server send routing table
-//Server send Error frame to empty buffer + reinitialise SEQU_NUMBER
-//New root will raise the 'Non-negociable' flag on Color_E Frame (to add at the end)
+#define SEQU_SEUIL 60000
 
 #define RX_SIZE          (1500)
 #define TX_SIZE          (1460)
@@ -93,21 +89,78 @@ extern bool is_asleep;
 extern uint16_t current_sequence;
 extern uint8_t buf_err[FRAME_SIZE];
 extern int err_addr_req;
+extern int err_prev_state;
 
 
-/*Variable du socket */
+/* Socket's variable */
 extern struct sockaddr_in tcpServerAddr;
 extern struct sockaddr_in tcpServerReset;
 extern uint32_t sock_fd;
 extern bool is_server_connected;
 
-/* Table de routage Arbalet Mesh*/
+/* Logical routing table */
 extern int route_table_size;
 
+/* Main functions */
+/**
+ *   @brief Update the route table :
+ * - add a mac address to the route table if the position is not used;
+ * - swap two element if the mac address is already present and the position is used;
+ * - replace the used position by the new mac address otherwise;
+ */
+void add_route_table(uint8_t *, int);
+
+/**
+ * @brief Disable a node : prevent the root from sending message to this specific node. Is used to indicate that it's down.
+ */
+void disable_node(uint8_t *);
+
+/**
+ * @brief Enable a node : allow the root to send messages again to this specific node. Is used to indicate that a node is reconnected to the mesh network.
+ */
+void enable_node(uint8_t *);
+
+/**
+ * @brief Opens the socket between the root card and the server, and initialize the connection. Is mandatory for becoming root.
+ */
 void connect_to_server();
-void reset_and_connect_server();
-void add_route_table(uint8_t * mac, int pos);
-void disable_node(uint8_t *mac);
-void enable_node(uint8_t *mac);
+
+/**
+ * @brief Main function
+ * This decides which function to call depending on the state of the card, and regulate the watchdogs of the state machine.
+ */
+void esp_mesh_state_machine(void *);
+
+/**
+ *@brief Makes the Builtin blue led blink as many times as the layer number : Debug.
+ */
+void blink_task(void *);
+
+/**
+ * @brief Initialise the Task of the card
+ */
+esp_err_t esp_mesh_comm_p2p_start(void);
+
+/**
+ * @brief Send a message to the root notifying that a child disconnection event happened, or a child answers with the NO_ROUTING error.
+ */    
+void error_child_disconnected(uint8_t *);
+
+/**
+ * @brief Send a beacon to the root on reconnection to the network : allow for layer switches.
+ */
+void send_beacon_on_disco();
+
+/**
+ * @brief Debug logs on event, and events management.
+ */
+void mesh_event_handler(mesh_event_t);
+
+/**
+ * @brief Startup function : initialize the cards
+ */
+void app_main(void);
+
+    
 
 #endif
