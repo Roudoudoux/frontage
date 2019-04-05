@@ -34,6 +34,7 @@ uint16_t current_sequence = 0;
 uint8_t buf_err[FRAME_SIZE] = {0};
 int err_addr_req = 0;
 int err_prev_state = 0;
+static bool is_comm_p2p_started = false;
 
 /*Socket's variable */
 struct sockaddr_in tcpServerAddr;
@@ -220,7 +221,6 @@ void blink_task(void *pvParameter)
  */
 esp_err_t esp_mesh_comm_p2p_start(void)
 {
-    static bool is_comm_p2p_started = false;
     if (!is_comm_p2p_started) {
         is_comm_p2p_started = true;
 	xTaskCreate(mesh_reception, "ESPRX", 3072, NULL, 5, NULL);
@@ -306,7 +306,7 @@ void mesh_event_handler(mesh_event_t event)
                  event.info.no_parent.scan_times);
         /* TODO handler for the failure */
         break;
-    case MESH_EVENT_PARENT_CONNECTED: //TODO : send BEACON if last_layer != 0
+    case MESH_EVENT_PARENT_CONNECTED:
         esp_mesh_get_id(&id);
         mesh_layer = event.info.connected.self_layer;
         memcpy(&mesh_parent_addr.addr, event.info.connected.connected.bssid, 6);
@@ -467,7 +467,7 @@ void app_main(void)
     memcpy((uint8_t *) &cfg.mesh_ap.password, CONFIG_MESH_AP_PASSWD,
            strlen(CONFIG_MESH_AP_PASSWD));
     ESP_ERROR_CHECK(esp_mesh_set_config(&cfg));
-    /* Initialisation de l'adresse MAC*/
+    /* MAC Address Initialisation*/
     esp_efuse_mac_get_default(my_mac);
 #if CONFIG_MESH_DEBUG_LOG
     ESP_LOGI(MESH_TAG, "my mac : %d-%d-%d-%d-%d-%d", my_mac[0], my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);

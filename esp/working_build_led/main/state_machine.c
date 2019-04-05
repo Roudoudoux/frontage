@@ -52,7 +52,7 @@ void state_init() {
 		ESP_LOGE(MESH_TAG, "Went into CONF state");
 #endif
 		return;
-	    } 
+	    }
 	}
 	else if (type == ERROR) { //At error reception : immediatly switch within ERROR state
 	    copy_buffer(buf_err, buf_recv, FRAME_SIZE);
@@ -154,7 +154,7 @@ void state_addr() {
 	    return;//Root can't progress if not connected to the server
 	}
     }
-    
+
     read_rxbuffer(buf_recv);
     type = type_mesg(buf_recv);
     if (type == COLOR) { // Root only
@@ -231,7 +231,7 @@ void state_color() {
 	    return;//Root can't progress if not connected to the server
 	}
     }
-    
+
     read_rxbuffer(buf_recv);
     type = type_mesg(buf_recv);
 
@@ -298,7 +298,7 @@ void state_error() {
 #endif
     int type = 0;
     const int len = CONFIG_MESH_ROUTE_TABLE_SIZE * 3 + 5 + (CONFIG_MESH_ROUTE_TABLE_SIZE * 3 + 4)/7;
-    uint8_t buf_recv[len];
+    uint8_t buf_recv[CONFIG_MESH_ROUTE_TABLE_SIZE * 3 + 5 + (CONFIG_MESH_ROUTE_TABLE_SIZE * 3 + 4)/7];
     uint8_t buf_send[FRAME_SIZE];
     uint8_t buf_blank[FRAME_SIZE] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -308,7 +308,7 @@ void state_error() {
 	    return;//Root can't progress if not connected to the server
 	}
     }
-    
+
     if (buf_err[TYPE] != 0) { //An error has already been received. As frame are consummed on reading, there is an exception for this frame, which is stocked in this special buffer. As such, this buffer should be read before trying to read from the reception buffer
 	if (FRAME_SIZE < len) {
 	    copy_buffer(buf_recv, buf_err, FRAME_SIZE);
@@ -345,7 +345,7 @@ void state_error() {
 	    }
 	}
     }
-	
+
     else if (type == COLOR_E) {//Mixed
 	uint16_t sequ = buf_recv[DATA] << 8 | buf_recv[DATA+1];
 	if (sequ > current_sequence || current_sequence - sequ > SEQU_SEUIL) {
@@ -358,7 +358,7 @@ void state_error() {
 #if CONFIG_MESH_DEBUG_LOG
 	ESP_LOGI(MESH_TAG, "Error frame received - %d", buf_recv[DATA+1]);
 #endif
-	if (buf_recv[DATA] == ERROR_GOTO) { 
+	if (buf_recv[DATA] == ERROR_GOTO) {
 	    if (same_mac(buf_recv + DATA + 2, my_mac)) { //Check if the message is for him.
 		err_addr_req = 0;
 		state = buf_recv[DATA+1] & 0x0F;
@@ -406,7 +406,7 @@ void state_error() {
 		ESP_LOGI(MESH_TAG, "Acquiting new card");
 #endif
 		buf_send[VERSION] = SOFT_VERSION;
-		if ((buf_recv[DATA+1] & (1<<5)) == 0) { //UNK is down 
+		if ((buf_recv[DATA+1] & (1<<5)) == 0) { //UNK is down
 #if CONFIG_MESH_DEBUG_LOG
 		    ESP_LOGW(MESH_TAG, "enabling node");
 #endif
@@ -452,5 +452,5 @@ void state_error() {
 	    ESP_LOGE(MESH_TAG, "There is still an error with the HaR procedure, sorry :/");
 #endif
 	}
-    } 
+    }
 }

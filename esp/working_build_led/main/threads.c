@@ -74,7 +74,8 @@ void server_reception(void * arg) {
 		uint8_t zeros[3] = {0, 0, 0};
 		for (int i = 0; i < route_table_size; i++) {
 		    copy_buffer(buf_send+DATA+2, zeros, 3);
-		    copy_buffer(buf_send+DATA+5, route_table[i].card.addr, 6);		    if (!same_mac(route_table[i].card.addr, my_mac)) {
+		    copy_buffer(buf_send+DATA+5, route_table[i].card.addr, 6);
+		    if (!same_mac(route_table[i].card.addr, my_mac)) {
 			if (route_table[i].state) {
 			    int head = write_txbuffer(buf_send, FRAME_SIZE);
 			    xTaskCreate(mesh_emission, "ESPTX", 3072, (void *) head, 5, NULL);
