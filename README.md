@@ -3,6 +3,33 @@
 This is the backend of Arbalet Frontage, the [pixelated building facade of Bordeaux University](https://vimeo.com/arbalet/frontage). It drives 4 rows x 19 columns of RGB Art-Net/DMX fixtures. See [Network schematics](frontage.svg).
 
 
+
+## Mesh  specifications
+
+### Prerequise
+- [esp-idf](https://github.com/espressif/esp-idf) : framework used for programing esp32
+- AP dedecated to the communication between the mesh network and the backend service. It can either be your **network manager device** or a **router**.
+
+### ESP-IDF
+The framework needs to be installed from the espressif website. Several steps are required and each one of them is needed. Make sure to follow them !!!!
+
+To generate the **esp-idf** documentation, the doxyfile has to be slightly modified. **TO DO**
+
+**Tips :**
+- Monitoring can be done by `make monitor` or `make simple_monitor`. The latter is to be used in case of no code compilation.
+- If there is a need to monitor several esp32 at once with one computer, copy/paste the esp directory and modify the line `CONFIG_ESPTOOLPY_PORT="/dev/ttyUSB0"` in `sdkconfig` by incrementing the `ttyUSB` in the copied directory. You can also use `make menuconfig` in serial flasher config menu.
+- Whenever you want to build your code, use `make -j4 build`, it will be much more faster than `make build`
+### Configuring AP
+
+The default configuration is :
+- **ssid :**  `ArbaMesh`
+- **security :** `WPA/WPA2`
+- **password :** `arbampass`
+- **IPv4 :** `10.42.0.1`
+- **Port :** `9988`
+
+**Note :** All the default parameters are fixed as ESP32 embarked programing requires constant values. If a change is required due to devices, make sure to change the esp32 code in `mesh_main.c` along with `docker-compose.yml` for Ipv4 address and port. If the change is about **ssid**, **password** or **security** the changes only apply in the `sdkconfig` file (esp directory). This can be done with `make menuconfig`.
+
 ## Development
 ### First startup
 Default keys and passwords are fine for a dev environment.

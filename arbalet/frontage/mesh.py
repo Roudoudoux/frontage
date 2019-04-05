@@ -17,6 +17,14 @@ from server.flaskutils import print_flush
 
 import struct
 
+
+# Description :
+# the two dictionnaries have the same formate {key : ((x,y), ind)},
+# For a key k presents in both dico1 and dico2, matching key update the "ind" value of
+# k in dico2 with the one in dico1.
+# Utility :
+# This function is used in a case of skipping AMA procedure to refresh the pixel indexes
+# in COLOR frames
 def matching_keys(dico1, dico2):
     if (len(dico1) == len(dico2)):
         for key in dico1.keys() :
@@ -31,16 +39,17 @@ def matching_keys(dico1, dico2):
     else :
         return False
 
+# Description :
 # fill the array according to the chosen mod (ama/prod) with the colors matching the pixels position stock in dico
+# Utility :
+# The given array is in fact the COLOR frame which will be sent to ESP root
 def filling_array(array, colors, dico, ama):
     m = len(colors[0])
     n = len(colors)
-    #print_flush("Matrix dim : {0}, {1}".format(m, n))
-    for val in dico.values():#Concat avec Listen.unk?
+    for val in dico.values():
         ((i,j), ind) = val
         if ind < Mesh.comp :
-        # print_flush("val =", val, "ama = ", ama)
-            if (ama == 0) :#La matrice est un tabular
+            if (ama == 0) :# 2D array is interpreted as a 1D array
                 r = colors[int(ind/m)][int(ind % m)][0]
                 v = colors[int(ind/m)][int(ind % m)][1]
                 b = colors[int(ind/m)][int(ind % m)][2]
@@ -50,13 +59,16 @@ def filling_array(array, colors, dico, ama):
                 b = colors[i][j][2]
             else: # unkown value
                 r= v= b= 0
+            # Fill the right place in the COLOR frame
             array[c.DATA + 2 + ind*3] = min(255, max(0, int(r*255)))
             array[c.DATA + 3 + ind*3] = min(255, max(0, int(v*255)))
             array[c.DATA + 4 + ind*3] = min(255, max(0, int(b*255)))
 
-# formating the color frame
+# Description :
+# formating the color frame according to the ESP32 communication protocol
+# Note :
+# Is not with the other functions (in mesh_communication) because msg_color is using and updating some Mesh's attributs
 def msg_color(colors, ama= 1):
-    #print_flush("Entering function")
     l = Mesh.comp
     array = bytearray(l*3 + 4 + ceil((l*3 + 4)/7))
     array[c.VERSION] = c.SOFT_VERSION
@@ -65,18 +77,28 @@ def msg_color(colors, ama= 1):
     array[c.DATA] = Mesh.sequence // 256
     array[c.DATA+1] = Mesh.sequence % 256
     filling_array(array, colors, Mesh.pixels, ama)
-    #print_flush("Filled array")
     if (Mesh.ama == 1) :
         filling_array(array,colors,Listen.unk, ama)
-        #print_flush("Filled array for UNK")
-    #print_flush("Calculating CRC...")
     crc_get(array)
     return array
 
+# The Listen class is used to managed the communication with the mesh network.
+# It waits for messages from ESP root and finds the rigth response
+# A response is composed of two parts :
+# - 1) a process in the service
+# - 2) a frame to send to the esp root
+#
+# Those parts will be indicated in the code respectively by "1)" and "2)"
+#
+# Listen class is also the one managing the dictionnaries deco and unk wich are
+# respectively manager of the not responding esps and the newly add ones.
 class Listen(Thread) :
     deco = {} # matrix of pixels addressed but lost, deconnected
     unk = {} # matrix of new pixels which do not have positions
 
+
+    # Listen requires a socket descritor to communicate with esp root
+    # It initialised the redis values of the different dictionnaries and the get_deco value
     def __init__(self, com) :
         Thread.__init__(self)
         self.com = com
@@ -86,13 +108,14 @@ class Listen(Thread) :
         Websock.send_get_deco(False)
 
     #Send the current routing table to the new elected root within the mesh network
+    # To do so, the esp root is put in CONF state (which allows the reception of INSTALL frames)
+    # then INSTALL frame are send in the indexe ascending order. At last the esp root is put in
+    # its previous state via the emission of a go_to frame
     def send_table(self, previous_state):
         print_flush("Sending routing table... Step 1 achieved.")
-        #pb : récupérer l'adresse de la nouvelle root
-        #passe la nouvelle root en state_conf
-        array = msg_readressage(Mesh.mac_root, c.STATE_CONF)#comment trouver l'adresse mac de la nouvelle root ????
-        self.com.mesh_conn.send(array)
-        #envoie de trames install (manque potentiellement les pixels deco)
+        array = msg_readressage(Mesh.mac_root, c.STATE_CONF)
+        self.com.send(array)
+        # sorting values in acsending order as required by ESP algorithm
         root_val = Mesh.pixels[Mesh.mac_root]
         card_list = [None] * Mesh.comp
         for val in Mesh.pixels :
@@ -101,26 +124,29 @@ class Listen(Thread) :
         for val in Listen.deco :
             ((i,j), ind) = Listen.deco.get(val)
             card_list[ind] = ((i, j), val)
-        #Values have to be sorted and send in croissant order. It is required by the ESP algorithm
+        # sending INSTALL frame one by one
         for ind, value in enumerate(card_list) :
             ((i, j), val) = value
             print_flush("on envoie INSTALL pour {}".format(ind))
             array = msg_install_from_mac(val, ind)
             print_flush("voici l'array {}".format(array))
-            self.com.mesh_conn.send(array)
+            self.com.send(array)
+        # sending ERROR GO_TO
         array = msg_readressage(Mesh.mac_root, previous_state)
-        self.com.mesh_conn.send(array)
+        self.com.send(array)
         print_flush("Routing table has been sent to {}".format(Mesh.mac_root))
 
     #Reacts to all messages received from the mesh network.
+    # listen is talkative in view to inform via print_flush the administrator of all the messages it received
     def listen(self) :
         data = ""
         self.count += 1
         print_flush("{0} Listening... {1}".format(self.count, time.asctime( time.localtime(time.time()) )))
-        data = self.com.mesh_conn.recv(1500)
+        # receives 1500 (a wifi frame length)
+        data = self.com.recv(1500)
         if (data != "" and crc_check(data[0:16])) :
-            #ajout message sur sentry
             if (data[c.TYPE] == c.ERROR) :
+                # when a frame ERROR is received, an ERROR frame will be sent no matter the sub-type
                 array = bytearray(16)
                 array[c.VERSION] = c.SOFT_VERSION
                 array[c.TYPE] = c.ERROR
@@ -131,6 +157,8 @@ class Listen(Thread) :
                 mac = array_to_mac(data[c.DATA+2 : c.DATA +8])
                 print_flush("Pixel {0} has encountered a problem {1}".format(mac, data[c.DATA]))
                 if data[c.DATA] == c.ERROR_DECO :
+                    # 1) the pixel deconnected has to be removed from the working pixel dictionnary and put in the deconnected pixel one
+                    #    If the pixel is not adressed it can be removed from the server knowledges
                     if (Mesh.pixels.get(mac) is not None) :
                         Listen.deco[mac] = Mesh.pixels.pop(mac)
                         Websock.send_pixels(Mesh.pixels)
@@ -139,6 +167,10 @@ class Listen(Thread) :
                         Listen.unk.pop(mac)
                     print_flush("Add pixel {0} to Listen.deco : {1}".format(mac, Listen.deco))
                 elif data[c.DATA] == c.ERROR_CO :
+                    # 1) the new pixel is deal with along with the informations known about it.
+                    #    If it has been adressed, it gets to work again without any action from administrator
+                    #    Else a administrator action is required. In the former case the pixel goes in working pixels dic
+                    #    In the latter it goes in unknown pixels dic to wait for human intervention
                     if mac in Listen.deco :
                         print_flush("Address is in Listen.deco")
                         Mesh.pixels[mac] = Listen.deco.pop(mac)
@@ -152,55 +184,67 @@ class Listen(Thread) :
                         Websock.send_pos_unk(Listen.unk)
                         array[c.DATA+1] = array[c.DATA+1] | 32
                 elif data[c.DATA] == c.ERROR_ROOT :
+                    # 1) a reelection has occured in the mesh network, the new esp root send a frame to declared herself.
+                    #    The mac_root is updated and the known card number is comparted to the one of the root.
                     Mesh.mac_root = mac
                     nb_card = (data[c.DATA+1] & 0xF0) >> 4
                     print_flush("on dit qu'il y a {}".format(nb_card))
+                    # 2) If the error has occured because of the mesh network  : the routing table is sent to the newly elected esp root
+                    #    Else it was due to the sever wich takes the nb_pixels has granted and considered pixels has addressed.
                     if Mesh.comp >= nb_card :
-                        self.send_table(data[c.DATA+1] & 0x0F) # Only if new root => Root.comp = 0?
+                        self.send_table(data[c.DATA+1] & 0x0F)
                     else :
                         Mesh.comp = nb_card
                         Mesh.addressed = True
-                        msg_readressage(Mesh.mac_root, data[c.DATA+1] & 0x0F)
-                    #Mesh.comp = data[c.DATA+1] >> 4 #Getting back number of cards in network -> Only if Mesh.comp < Root.comp?
+                        array = msg_readressage(Mesh.mac_root, data[c.DATA+1] & 0x0F)
+                        self.com.send(array)
                     return
                 else :
                     print_flush("Unkown message type")
-                print_flush("Received message, acquitting it", data)
                 print_flush("Updates  Listen.deco {0} \n Updates Listen.unk {1}".format(Listen.deco, Listen.unk))
+                # The ACK flag is raised to prevent the esp root that it's error has been handled
                 array[c.DATA+1] = array[c.DATA+1] | 128
+                # 2) Once the ERROR has been managed and informations updated, the esp root is informed of its fate
                 crc_get(array)
-                self.com.mesh_conn.send(array)
+                self.com.send(array)
                 print_flush("acquitted")
             elif ( data[c.TYPE] == c.BEACON)  :
-                # print_flush("BEACON : %d-%d-%d-%d-%d-%d" % (int(data[c.DATA]), int(data[c.DATA+1]), int(data[c.DATA+2]), int(data[c.DATA+3]), int(data[c.DATA+4]), int(data[c.DATA+5])))
+                # 1) BEACON are only received during configuration phase. The esp declared itself one-by-one.
+                #   Along with their declarations, they are stocked in unk dic wich is sent on Reddis at each new esp BEACON.
+                #   It is necessary to do so because their is no way to known in advance how many esp will be in the mesh network.
                 mac = array_to_mac(data[c.DATA:c.DATA+6])
                 print_flush("Pixel {0} is declaring itself".format(mac))
                 if (Mesh.comp == 0):
+                    # The first to declared itself is the esp root
                     Mesh.mac_root= mac
                 if Listen.unk.get(mac) != None :
+                    # an ESP is only considered once
                     print_flush("But it has already be declared ")
                     pass
                 Listen.unk[mac]=((-1,-1), Mesh.comp)
                 Websock.send_pos_unk(Listen.unk)
                 array = msg_install(data, Mesh.comp)
                 Mesh.comp += 1
-                self.com.mesh_conn.send(array)
-                # if Mesh.comp == Mesh.required_amount and matching_keys(Listen.unk, Mesh.pixels):
-                #     self.com.mesh_conn.send(msg_ama(c.AMA_INIT))
-                #     self.com.mesh_conn.send(msg_ama(c.AMA_COLOR))
+                # 2) A INSTALL Frame is sent to the esp root for it to update its routing table and acknoledge the esp first sender
+                self.com.send(array)
             else :
                 print_flush("received unintersting message...")
 
     def run(self) :
+        #dummy infinite loop
         while True:
             self.listen()
 
+
+# Mesh class is the model consummer. It ensures that models are well interpreted and match with the action
+# taking place on the frontend. The AMA/HAR procedure are managed by this class in the maner to understand models
+# and what information to get or to sent to F-app. The only F-app "talking via Reddis" with Mesh class is AMA.py
 class Mesh(Thread):
     socket = None #socket bind to mesh network through AP
     mac_root = '' #esp32 root mac address
     sequence = 0 # sequence number of the COLOR frame
     pixels = SchedulerState.get_pixels_dic() #pixels addressed and connected
-    required_amount = SchedulerState.get_amount()
+    required_amount = SchedulerState.get_amount() #number of pixel required by the administrator
     consummed = 0 #model consummed on RabbitMQ
     comp = 0 # pixel amount
     #Manage adressing procedures
@@ -208,6 +252,7 @@ class Mesh(Thread):
     ama = 0 #fluctuates between 0 and 3 : 0 => NEVER_addressed; 1 => AMA_INIT; 2 => AMA_COLOR; 3 => RAC
     change_esp_state = False #Order from ama.py to shift ESP in other state
 
+    # Initialisation of Mesh instance requires seting up several connection to be in operating mode
     def __init__(self, conn, addr):
         Thread.__init__(self)
         print_flush("Pixels :", Mesh.pixels)
@@ -215,12 +260,12 @@ class Mesh(Thread):
         Mesh.addressed = not (Mesh.pixels == {})
         self.ama_check = 0
         self.previous_state = 1
+        self.model = Model(SchedulerState.get_rows(), SchedulerState.get_cols())
         #Communication with mesh network config
         self.mesh_conn = conn
         self.mesh_addr = addr
-        self.l = Listen(self)
+        self.l = Listen(conn)
         self.l.start()
-        self.model = Model(SchedulerState.get_rows(), SchedulerState.get_cols())
         self.stopped = False
         #Communication with RabbitMQ config
         self.channel = None
@@ -405,7 +450,6 @@ class Mesh(Thread):
             self.connection.close()
         print_flush("Closed connection, exiting thread...")
         self.stopped = True
-        #TODO : kill the thread
 
 def main() :
     nb_connection = 0
@@ -422,7 +466,6 @@ def main() :
                 time.sleep(0.1)
                 continue
             break
-        # print_flush(Mesh.socket)
         socket_thread = None
         while True :
             print_flush("Socket opened, waiting for connection...")
