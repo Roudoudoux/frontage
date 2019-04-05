@@ -71,7 +71,6 @@ class Websock(Thread):
              return False
         return True
 
-
     @staticmethod
     def send_esp_state(esp_state):
         print_flush("###############################################################################")
@@ -98,10 +97,6 @@ class Websock(Thread):
     @staticmethod
     def get_esp_state():
         data = redis_get(ADDR, None)
-        # if data:
-        #     redis.set(ADDR, 'None')
-        # if data == 'None':
-        #     return None
         return data
 
     @staticmethod
@@ -116,8 +111,6 @@ class Websock(Thread):
     @staticmethod
     def get_pos_unk():
         data = redis_get(POS_UNK, None)
-        # if data:
-        #     redis.set(POS_UNK, 'None')
         if data == 'None':
             return None
         return data
@@ -125,8 +118,6 @@ class Websock(Thread):
     @staticmethod
     def get_pixels():
         data = redis_get(PIXELS, None)
-        # if data:
-        #     redis.set(PIXELS, 'None')
         if data == 'None':
             return None
         return data
@@ -134,12 +125,9 @@ class Websock(Thread):
     @staticmethod
     def get_deco():
         data = redis_get(DECO, None)
-        # if data:
-        #      redis.set(DECO, 'None')
         if data == 'None':
             return None
         return data
-
 
     async def consumer_handler(self, websocket, path): # noqa
         while True:

@@ -249,10 +249,13 @@ class Mesh(Thread):
     comp = 0 # pixel amount
     #Manage adressing procedures
     addressed = None #Tels if the pixels are addressed or not
-    ama = 0 #fluctuates between 0 and 3 : 0 => NEVER_addressed; 1 => AMA_INIT; 2 => AMA_COLOR; 3 => RAC
+    ama = 0 #fluctuates between 0 and 3 : 0 => NEVER_addressed; 1 => AMA_INIT; 2 => AMA_COLOR; 3 => HAR
     change_esp_state = False #Order from ama.py to shift ESP in other state
 
-    # Initialisation of Mesh instance requires seting up several connection to be in operating mode
+    # Initialisation of Mesh instance requires seting up several connections to be in operating mode
+    # A TCP connection for communication with the mesh network
+    # A RabbitMQ connection for models recepetion
+    # Reddis connection is managed by Websock class and static methods
     def __init__(self, conn, addr):
         Thread.__init__(self)
         print_flush("Pixels :", Mesh.pixels)
@@ -274,9 +277,11 @@ class Mesh(Thread):
         self.params = pika.ConnectionParameters(host='rabbit', credentials=credentials, heartbeat = 0)
 
 
-    #determine if the current model has a pattern matching with the expected oneself.
-    #All along adressing procedures, there are only two model types accepted : the one filled with green and black and the one with green, undifined and one red pixel.
+    #Determine if the current model has a pattern matching with the expected one.
+    # This function is used only in AMA or HAR procedure. It is called in ama_care function which handle models during those procedures.
     #The pattern to match is set in the instance attribut ama_check.
+    # If ama_check is set to 0, Mesh class is looking for models having : 1 red pixel, x green pixel (0 <= x < required_amount ) and special pixels (set at -1)
+    # else Mesh is looking for models  having : x green pixels and the rest is colored in black
     def ama_model(self) :
         i = self.model.get_height()-1
         if (self.ama_check == 0):
@@ -284,12 +289,12 @@ class Mesh(Thread):
             while(i >= 0) :
                 j = self.model.get_width()-1
                 while (j >= 0 ) :
-                    tmp = self.model.get_pixel(i,j)
-                    if ( (tmp[0]+tmp[1]+tmp[2]) == -3):
+                    tmp = self.model.get_pixel(i,j) # tmp = (R, G, B)
+                    if ( (tmp[0]+tmp[1]+tmp[2]) == -3): # special "color" -1
                         return True
-                    elif (tmp[0] == 0 and tmp[1]==1 and tmp[2]==0):
+                    elif (tmp[0] == 0 and tmp[1]==1 and tmp[2]==0): # green
                         green += 1
-                    elif (tmp[0]== 1 and tmp[1] == 0 and tmp[2] == 0):
+                    elif (tmp[0]== 1 and tmp[1] == 0 and tmp[2] == 0): # red
                         red += 1
                     else :
                         return False
@@ -307,7 +312,12 @@ class Mesh(Thread):
                 i -= 1
                 return True
 
-    #update the known pieces of information before trying to display the model on the mesh network.
+    #Is called to manage the addressing procedures.
+    # Get from Reddis the newly update pixel dictionnary and unknown dictionnary
+    #     this is a prerequise to build the COLOR frame and ensure that addressing procedures are well executed.
+    # The type of model expected is also get from Reddis as it is set by the F-app AMA.py
+    # The model received from RabbitMQ is check by ama_model. It necessary because RabbitMQ is refreshed at a frequency of 6Hz,
+    # which introduce a delay between the reception of the expected model and the first model matching.
     def ama_care(self):
         #Get the new pixel addressed positions
         tmp = Websock.get_pixels()
@@ -316,85 +326,86 @@ class Mesh(Thread):
         tmp = json.loads(Websock.get_pos_unk())
         if tmp != None :
             Listen.unk = tmp
-        #Get the Frame format to check
+        #Get the model format to check
         tmp = Websock.get_ama_model()
         if tmp != None:
             self.ama_check = eval(tmp)['ama']
-        if self.ama_model():
+        if self.ama_model(): # send a COLOR frame only if the model match the expected model
             array = msg_color(self.model._model, self.ama_check)
             self.mesh_conn.send(array)
 
-    #invoque whenever a model is received from RabbitMQ, the callback function is the core. It checks if a readressing procedures has been required_amount
-    # and reacts correspondivly.
+    # This function is the manager of the different procedures implemented. It puts the server and the mesh network in the
+    # right configuration for the required procedure by putting esp in the right state and manage the dictionnary
+    def procedures_manager(self):
+        Mesh.ama += 1
+        if Mesh.ama == 1 : #AMA procedure starts
+            print_flush("START AMA")
+            Mesh.addressed = False
+            Mesh.print_mesh_info()
+            array = msg_ama(c.AMA_INIT)
+            self.mesh_conn.send(array)
+        elif Mesh.ama == 2 : # Ends adressing procedures
+            Mesh.addressed = True
+            Mesh.print_mesh_info()
+            array = msg_ama(c.AMA_COLOR)
+            self.mesh_conn.send(array)
+            print_flush("END addressing procedure")
+        else : # HAR procedure starts
+            print_flush("START HAR")
+            Mesh.ama = 1
+            Mesh.addressed = False
+            Mesh.print_mesh_info()
+            array = msg_readressage(Mesh.mac_root, c.STATE_CONF)
+            self.mesh_conn.send(array)
+            print_flush(Listen.unk.keys(), Listen.deco)
+            # The pixel in deco are one by one being forgotten and their index is attributed to one of the unknown
+            for mac in Listen.unk.keys() :
+                if len(Listen.deco) > 0 :
+                    pixel_deco = Listen.deco.popitem()
+                    print_flush("Adding new element")
+                    print_flush(pixel_deco)
+                    print_flush("Inserted unknwon card at {0}".format(pixel_deco[1][1]))
+                    Listen.unk[mac] = ((-1,-1), pixel_deco[1][1])
+                    array = msg_install_from_mac(mac, pixel_deco[1][1])
+                    self.mesh_conn.send(array)
+            Websock.send_pos_unk(Listen.unk)
+            Mesh.print_mesh_info()
+            array = msg_ama(c.AMA_INIT)
+            self.mesh_conn.send(array)
+
+    #Invoque whenever a model is received from RabbitMQ, the callback function is the core.
+    #Due to the absence of Reddis notification the callnack funciton is used to check if something have changed
+    # - The deconnected pixel dictionnary has to be get from Reddis if a HAR procedure is at stake, because the unknown pixel have taken
+    # their indexes in the routing table.
+    # - The esp_state is the boolean that determines if a pocedure has started
     def callback(self, ch, method, properties, body):
         Mesh.consummed += 1
-        if Mesh.consummed % 100 == 0 :
+        if Mesh.consummed % 100 == 0 : #display mesh status each 100 models received
             Mesh.required_amount = SchedulerState.get_amount()
             Mesh.print_mesh_info()
-        if Mesh.comp < Mesh.required_amount :
-            return
-        #print_flush("Entered callback corps")
+        # uncommment to reduce the amount of frames send during the esp declaration phase
+        # if Mesh.comp < Mesh.required_amount :
+        #     print_flush("Not enough pixels on the mesh network to display the model")
+        #     return
         if Websock.should_get_deco() :
             Listen.deco = json.loads(Websock.get_deco())
         b = body.decode('ascii')
         self.model.set_from_json(b)
         tmp = Websock.get_esp_state()
-        # print_flush(tmp)
-        # print_flush("avt eval de tmp {}".format(tmp))
-        if tmp != None and eval(tmp) != self.previous_state: #temporaire en attendant une mise de verrou dans websocket
+        if tmp != None and eval(tmp) != self.previous_state:
             Mesh.change_esp_state = True
             print_flush("tmp != None, tmp = {}".format(tmp))
             self.previous_state = eval(tmp)
         else :
-            # print_flush("tmp == None")
             Mesh.change_esp_state = False
-        # print_flush("ap eval de tmp {}".format(self.previous_state))
-        if Mesh.change_esp_state :
-            Mesh.ama += 1
-            if Mesh.ama == 1 : #AMA procedure starts
-                print_flush("DEBUT Mesh.ama = 1")
-                Mesh.addressed = False
-                Mesh.print_mesh_info()
-                array = msg_ama(c.AMA_INIT)
-                self.mesh_conn.send(array)
-                print_flush("FIN Mesh.ama = 1")
-            elif Mesh.ama == 2 : # Ends adressing procedures
-                print_flush("DEBUT Mesh.ama = 2")
-                Mesh.addressed = True
-                Mesh.print_mesh_info()
-                array = msg_ama(c.AMA_COLOR)
-                self.mesh_conn.send(array)
-                print_flush("FIN Mesh.ama = 2")
-            else : # RaC procedure starts
-                print_flush("DEBUT Mesh.ama = 3")
-                Mesh.ama = 1
-                Mesh.addressed = False
-                Mesh.print_mesh_info()
-                array = msg_readressage(Mesh.mac_root, c.STATE_CONF)
-                self.mesh_conn.send(array)
-                print_flush(Listen.unk.keys(), Listen.deco)
-                for mac in Listen.unk.keys() :
-                    if len(Listen.deco) > 0 :
-                        pixel_deco = Listen.deco.popitem()
-                        print_flush("Adding new element")
-                        print_flush(pixel_deco)
-                        print_flush("Inserted unknwon card at {0}".format(pixel_deco[1][1]))
-                        Listen.unk[mac] = ((-1,-1), pixel_deco[1][1])
-                        array = msg_install_from_mac(mac, pixel_deco[1][1])
-                        self.mesh_conn.send(array)
-                Websock.send_pos_unk(Listen.unk)
-                Mesh.print_mesh_info()
-                array = msg_ama(c.AMA_INIT)
-                self.mesh_conn.send(array)
-                print_flush("FIN Mesh.ama = 3")
-        elif (Mesh.ama == 1) :
+        if Mesh.change_esp_state : # A procedure has started (ie AMA.py is launched) and both the mesh network and the serveur have to be ready
+            self.procedures_manager()
+        elif (Mesh.ama == 1) : # A procedure is running
             self.ama_care()
-        elif (Mesh.addressed) :
-            #print_flush("Sending color")
+        elif (Mesh.addressed) : # Production mod : all pixels are addressed
             array = msg_color(self.model._model)
             self.mesh_conn.send(array)
-            #print_flush("Colors send")
-        else :
+        else : # Temporisation required between the launching of AMA.py and the frist model matching the procedure arrives
             print_flush("{} : It is not the time to send colors".format(Mesh.consummed))
 
     #prints information relative to the mesh current state (server point of view)
