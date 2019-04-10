@@ -186,7 +186,7 @@ void mesh_emission(void * arg) {
 	{
 	    mesh_addr_t to;
 	    get_mac(mesg, to.addr);
-	    err = esp_mesh_send(&to, &data, MESH_DATA_P2P, NULL, 0);
+	    err = esp_mesh_send(&to, &data, MESH_DATA_NONBLOCK | MESH_DATA_P2P, NULL, 0); //Should prevent freezing of cards, but didn't work -> further testing is required (still blocking?)
 	    if (err != 0) {
 #if CONFIG_MESH_DEBUG_LOG
 		ESP_LOGE(MESH_TAG, "Couldn't send COLOR to "MACSTR" - %s", MAC2STR(to.addr), esp_err_to_name(err));

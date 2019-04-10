@@ -31,6 +31,7 @@ void write_rxbuffer(uint8_t * data, uint16_t size){
     }
     pthread_mutex_lock(&rxbuf_write);
     rxbuf_free_size = rxbuf_free_size - size;
+    int head = rxbuf_head;
     rxbuf_head = (rxbuf_head + size) % RXB_SIZE;
     pthread_mutex_unlock(&rxbuf_write);
     for(int i = 0; i < size; i++){
