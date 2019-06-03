@@ -75,7 +75,7 @@ services:
     restart: unless-stopped
     env_file: .env-dev
     ports:
-      - "10.42.0.1:9988:9988"
+      - "127.0.0.1:9988:9988"
     command: ["mesh"]
     links:
       - redis:redis
