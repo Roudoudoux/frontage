@@ -30,6 +30,9 @@ TYPE = 1 #Field of the frame type
 DATA = 2 #Start of the DATA field
 FRAME_SIZE = 16 #Conventionnal frame size, is true for every frame except COLOR frame.
 
+#ESP32
+MAC_SIZE = 6
+
 #States
 STATE_INIT = 1 #Declaration state
 STATE_CONF = 2 #Root-exclusive state, relay node<->server declaration/acknowledgement
