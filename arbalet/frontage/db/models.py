@@ -84,12 +84,12 @@ class ConfigModel(Base):
 
     uniqid = Column(String(36), primary_key=True)
 
-    forced_sunrise = Column(String(36))
-    offset_sunrise = Column(Integer)
 
-    forced_sunset = Column(String(36))
-    offset_sunset = Column(Integer)
-    state = Column(String(36))
+    time_on = Column(String(10))             # On time, which can be formatted as %H:%m or "sunrise", "sunset"
+    time_off = Column(String(10))            # On time, which can be formatted as %H:%m or "sunrise", "sunset"
+    offset_time_on = Column(Integer)         # Offset in seconds for actual ON time, with respect to time_on
+    offset_time_off = Column(Integer)        # Offset in seconds for actual OFF time, with respect to time_off
+    state = Column(String(36))               # "on", "off", "scheduled"
     expires_delay = Column(Integer)
     default_app_lifetime = Column(Integer)
 
@@ -97,15 +97,14 @@ class ConfigModel(Base):
     admin_hash = Column(String(512))
 
     def __init__(self):
+        # Default values when initializing a new database
         self.uniqid = str(uuid4())
-        self.forced_sunset = ""
-        self.offset_sunset = 0
         self.state = 'scheduled'
-
-        self.forced_sunrise = ""
-        self.offset_sunrise = 0
+        self.time_on = "sunset"
+        self.time_off = "sunrise"
+        self.offset_time_off = 0
+        self.offset_time_on = 0
         self.default_app_lifetime = 15 * 60
-
         self.expires_delay = 90
 
     def __repr__(self):

@@ -48,22 +48,37 @@ def set_admin_credentials():
 def _set_admin_credentials():
     session = session_factory()
     conf = session.query(ConfigModel).first()
-    click.echo("Setting the admin password...")
-    conf.admin_login = input("Admin login: ")
+    click.echo("Please choose your admin password (More than 8 characters, space-free)...")
 
     while True:
-        password = getpass("Admin password:")
-        password2 = getpass("Retype password:")
-        if password != password2:
-            click.echo("Passwords do not match")
-        elif len(password) < 8:
-            click.echo("Password should contain at least 8 characters")
+        login = input("Admin login: ")
+        if len(login) < 4:
+            click.echo("Admin username must contain at least 4 characters")
+        elif login != login.strip():
+            click.echo("Admin username cannot start or end with spaces")
         else:
             break
 
+    while True:
+        password = getpass("Admin password:")
+
+        if len(password) < 8:
+            click.echo("Password must contain at least 8 characters")
+        elif password != password.strip():
+            click.echo("Password cannot start or end with spaces")
+        else:
+            password2 = getpass("Retype password:")
+            if password != password2:
+                click.echo("Passwords do not match")
+            else:
+                break
+
+
+    conf.admin_login = login
     conf.admin_hash = hash_password(password)
     session.commit()
     session.close()
+    click.echo("Backend initialized")
 
 @click.command()
 def clean():

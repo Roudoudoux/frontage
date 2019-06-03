@@ -96,10 +96,10 @@ def admin_enabled_scheduler(user):
 
 @blueprint.route('/b/admin/cal', methods=['GET'])
 def admin_cal_at():
-    return jsonify(on=SchedulerState.get_forced_on_time(),
-                   off=SchedulerState.get_forced_off_time(),
-                   on_offset=SchedulerState.get_sundown_offset(),
-                   off_offset=SchedulerState.get_sunrise_offset())
+    return jsonify(time_on=SchedulerState.get_time_on(),
+                   time_off=SchedulerState.get_time_off(),
+                   offset_time_on=SchedulerState.get_offset_time_on(),
+                   offset_time_off=SchedulerState.get_offset_time_off())
 
 # format .strftime('%Y-%m-%d')
 
@@ -107,15 +107,20 @@ def admin_cal_at():
 @blueprint.route('/b/admin/state', methods=['PATCH'])
 @authentication_required
 def admin_set_state(user):
-    if request.get_json().get('sunrise_offset'):
-        SchedulerState.set_sunrise_offset(request.get_json().get('sunrise_offset', 0))
-    if request.get_json().get('sundown_offset'):
-        SchedulerState.set_sunset_offset(request.get_json().get('sundown_offset', 0))
-    if request.get_json().get('sunrise'):
-        SchedulerState.set_forced_off_time(request.get_json()['sunrise'])
-    if request.get_json().get('sundown'):
-        SchedulerState.set_forced_on_time(request.get_json()['sundown'])
-
+    if request.get_json().get('offset_time_on'):
+        try:
+            SchedulerState.set_offset_time_on(int(request.get_json().get('offset_time_on')))
+        except ValueError:
+            return jsonify(done=False)
+    if request.get_json().get('offset_time_off'):
+        try:
+            SchedulerState.set_offset_time_off(int(request.get_json().get('offset_time_off')))
+        except ValueError:
+            return jsonify(done=False)
+    if request.get_json().get('time_on'):
+        SchedulerState.set_time_on(request.get_json()['time_on'])
+    if request.get_json().get('time_off'):
+        SchedulerState.set_time_off(request.get_json()['time_off'])
     return jsonify(done=True)
 
 
