@@ -1,10 +1,14 @@
-if __name__ == '__main__':
-    import mesh_constants as c
-    from crc import Checksum
-else:
+from math import ceil
+try :
     from server.flaskutils import print_flush
     import utils.mesh_constants as c
     from utils.crc import Checksum
+except :
+    import mesh_constants as c
+    from crc import Checksum
+    def print_flush(*msg):
+        print(*msg, file=sys.stderr)
+        sys.stderr.flush()
 
 class Frame:
     def __init__(self, crc=None):
@@ -25,7 +29,6 @@ class Frame:
                 mac = mac[i+1 :]
                 i = 0
                 j += 1
-
 
     # Converts a integer array ([12, 25, 89, 125, 249, 80]) to a string mac address ("12:25:89:125:249:80")
     def array_to_mac(self, data):
@@ -58,17 +61,25 @@ class Frame:
         self.crc.set(array) #Generation of the checksum
         return array
 
+    # Only used in mock_esp
+    def beacon(self, mac):
+        array = bytearray(c.FRAME_SIZE)
+        array[c.VERSION] = c.SOFT_VERSION
+        array[c.TYPE] = c.BEACON
+        self.mac_to_array(mac, array, c.DATA)
+        self.crc.set(array)
+        return array
 
     # Description :
     # fill the array according to the chosen mod (ama/prod) with the colors matching the pixels position stock in dico
     # Utility :
     # The given array is in fact the COLOR frame which will be sent to ESP root
-    def filling_array(array, colors, dico, ama):
+    def filling_array(self, array, colors, dico, ama, nb_pixels):
         m = len(colors[0])
         n = len(colors)
         for val in dico.values():
             ((i,j), ind) = val
-            if ind < Mesh.comp :
+            if ind < nb_pixels :
                 if (ama == 0) :# 2D array is interpreted as a 1D array
                     r = colors[int(ind/m)][int(ind % m)][0]
                     v = colors[int(ind/m)][int(ind % m)][1]
@@ -92,14 +103,14 @@ class Frame:
         nb_pixels = len(pixels)
         if (ama == 1):
             nb_pixels += len(unks)
-        array = bytearray(l*3 + 4 + ceil((l*3 + 4)/7))
+        array = bytearray(nb_pixels*3 + 4 + ceil((nb_pixels*3 + 4)/7))
         array[c.VERSION] = c.SOFT_VERSION
         array[c.TYPE] = c.COLOR
-        array[c.DATA] = sequence // 256
-        array[c.DATA+1] = sequence % 256
-        self.filling_array(array, colors, pixels, ama)
-        if (Mesh.ama == 1) :
-            self.filling_array(array,colors,unks, ama)
+        array[c.DATA] = seq // 256
+        array[c.DATA+1] = seq % 256
+        self.filling_array(array, colors, pixels, ama, nb_pixels)
+        if (ama == 1) :
+            self.filling_array(array,colors,unks, ama, nb_pixels)
         self.crc.set(array)
         return array
 
@@ -157,7 +168,7 @@ class Frame:
     #    - frame : a bytearray containning the received frame
     # Returns : a boolean
     def is_valid(self, frame):
-        print_flush("checksum is ",self.crc.check(frame))
+        # print_flush("checksum is ",self.crc.check(frame))
         return (self.crc.check(frame) and frame[c.VERSION] == c.SOFT_VERSION)
 
 
