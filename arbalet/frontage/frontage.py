@@ -55,7 +55,7 @@ class Frontage(Thread):
         #####    Receive model from apps
         self.channel_app_model = self.connection.channel()
         self.channel_app_model.exchange_declare(exchange='model', exchange_type='fanout')
-        result = self.channel_app_model.queue_declare(exclusive=True, arguments={"x-max-length": 1})
+        result = self.channel_app_model.queue_declare(queue='', exclusive=True, arguments={"x-max-length": 1})
         queue_name = result.method.queue
         self.channel_app_model.queue_bind(exchange='model', queue=queue_name)
 
@@ -66,7 +66,7 @@ class Frontage(Thread):
 
         while self.frontage_running:
             # ASYNCHRONOUS END FRAME UPDATE LOOP
-            method, properties, body = self.channel_app_model.basic_get(queue=queue_name, no_ack=True)
+            method, properties, body = self.channel_app_model.basic_get(queue=queue_name)
             if self.fade_out_idx > 1:
                 self.model = self.model.__mul__(0.9)
                 self.fade_out_idx -= 1

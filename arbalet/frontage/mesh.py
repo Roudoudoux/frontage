@@ -272,12 +272,12 @@ class Mesh(Thread):
         if Mesh.ama == 1 : #AMA procedure starts
             print_flush("START AMA")
             Mesh.addressed = False
-            Mesh.print_mesh_info()
+            Mesh.print_mesh_info("Start ama (procedures_manager)")
             array = self.msg.ama(c.AMA_INIT)
             self.mesh_conn.send(array)
         elif Mesh.ama == 2 : # Ends adressing procedures
             Mesh.addressed = True
-            Mesh.print_mesh_info()
+            Mesh.print_mesh_info("End ama (procedures_manager)")
             array = self.msg.ama(c.AMA_COLOR)
             self.mesh_conn.send(array)
             print_flush("END addressing procedure")
@@ -285,7 +285,7 @@ class Mesh(Thread):
             print_flush("START HAR")
             Mesh.ama = 1
             Mesh.addressed = False
-            Mesh.print_mesh_info()
+            Mesh.print_mesh_info("Start har (procedures_manager)")
             array = self.msg.har(Mesh.mac_root, c.STATE_CONF)
             self.mesh_conn.send(array)
             print_flush(Listen.unk.keys(), Listen.deco)
@@ -300,8 +300,8 @@ class Mesh(Thread):
                     array = self.msg.install_from_mac(mac, pixel_deco[1][1])
                     self.mesh_conn.send(array)
             Websock.send_pos_unk(Listen.unk)
-            Mesh.print_mesh_info()
-            array = slef.msg.ama(c.AMA_INIT)
+            Mesh.print_mesh_info("(end procedures_manager)")
+            array = self.msg.ama(c.AMA_INIT)
             self.mesh_conn.send(array)
 
     #Invoque whenever a model is received from RabbitMQ, the callback function is the core.
@@ -311,9 +311,10 @@ class Mesh(Thread):
     # - The esp_state is the boolean that determines if a pocedure has started
     def callback(self, ch, method, properties, body):
         Mesh.consummed += 1
-        if Mesh.consummed % 100 == 0 : #display mesh status each 100 models received
+        print_flush(Mesh.consummed)
+        if Mesh.consummed % 10 == 0 : #display mesh status each 100 models received
             Mesh.required_amount = SchedulerState.get_amount()
-            Mesh.print_mesh_info()
+            Mesh.print_mesh_info("callback")
         # uncommment to reduce the amount of frames send during the esp declaration phase
         # if Mesh.comp < Mesh.required_amount :
         #     print_flush("Not enough pixels on the mesh network to display the model")
@@ -323,6 +324,7 @@ class Mesh(Thread):
         b = body.decode('ascii')
         self.model.set_from_json(b)
         tmp = Websock.get_esp_state()
+        print_flush("get_esp_state returns :".format(tmp))
         if tmp != None and eval(tmp) != self.previous_state:
             Mesh.change_esp_state = True
             print_flush("tmp != None, tmp = {}".format(tmp))
@@ -336,14 +338,14 @@ class Mesh(Thread):
         elif (Mesh.addressed) :
             # Production mod : all pixels are addressed
             Mesh.sequence = (Mesh.sequence + 1) % 65536
-            array = slef.msg.color(self.model._model, Mesh.sequence, Mesh.pixels, Listen.unk)
+            array = self.msg.color(self.model._model, Mesh.sequence, Mesh.pixels, Listen.unk)
             self.mesh_conn.send(array)
         else : # Temporisation required between the launching of AMA.py and the frist model matching the procedure arrives
             print_flush("{} : It is not the time to send colors".format(Mesh.consummed))
 
     #prints information relative to the mesh current state (server point of view)
     @staticmethod
-    def print_mesh_info():
+    def print_mesh_info(arg):
         print_flush(" ========== Mesh ==========")
         print_flush("-------- Is mesh initialized :")
         print_flush(Mesh.addressed)
@@ -359,6 +361,7 @@ class Mesh(Thread):
         print_flush(Listen.deco)
         print_flush("-------- Pixels unknown?")
         print_flush(Listen.unk)
+        print_flush(" ========== Mesh ========== at {}".format(arg))
 
     #starts the connection to RabbitMQ
     def run(self):
@@ -367,21 +370,23 @@ class Mesh(Thread):
             self.channel = self.connection.channel()
             self.channel.exchange_declare(exchange='pixels', exchange_type='fanout')
 
-            result = self.channel.queue_declare(exclusive=True, arguments={"x-max-length": 1})
+            result = self.channel.queue_declare(queue='',exclusive=True, arguments={"x-max-length": 1})
             queue_name = result.method.queue
-
+            print_flush("queue_name={}".format(queue_name))
             self.channel.queue_bind(exchange='pixels', queue=queue_name)
-            self.channel.basic_consume(self.callback, queue=queue_name, no_ack=True)
-            Mesh.print_mesh_info()
+            self.channel.basic_consume(queue=queue_name, on_message_callback=self.callback) #, queue=queue_name)
+            Mesh.print_mesh_info("basic_consume")
             print_flush('Waiting for pixel data on queue "{}".'.format(queue_name))
 
             self.channel.start_consuming()
         except Exception as e:
+            print_flush(e)
             if self.channel is not None:
                 self.channel.close()
             if self.connection is not None:
                 self.connection.close()
             raise e
+        print_flush("wtf fin de run should have start start_consuming")
 
     #Close nicely the connections with other services before killing the thread
     def close_socket(self) :
@@ -394,6 +399,7 @@ class Mesh(Thread):
             self.connection.close()
         print_flush("Closed connection, exiting thread...")
         self.stopped = True
+
 
 def main() :
     nb_connection = 0
@@ -411,14 +417,15 @@ def main() :
             break
         socket_thread = None
         while True :
-            print_flush("Socket opened, waiting for connection...")
+            print_flush("Socket opened, waiting for connection... already {} has connected".format(nb_connection))
             conn, addr = Mesh.socket.accept()
+            nb_connection+=1
             print_flush("Connection accepted with {0}".format(addr))
             if (socket_thread != None) :
                 socket_thread.close_socket()
                 print_flush("The previous connection has been closed")
             socket_thread = Mesh(conn, addr)
-            Mesh.print_mesh_info()
+            Mesh.print_mesh_info("main")
             socket_thread.start()
 
 if __name__ == '__main__' :
