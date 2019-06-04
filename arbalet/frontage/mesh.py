@@ -155,6 +155,7 @@ class Listen(Thread) :
                 Mesh.comp += 1
                 # 2) A INSTALL Frame is sent to the esp root for it to update its routing table and acknoledge the esp first sender
                 self.com.send(array)
+                print_flush("I've sent {}".format(array))
             else :
                 print_flush("received unintersting message...")
 
@@ -311,8 +312,7 @@ class Mesh(Thread):
     # - The esp_state is the boolean that determines if a pocedure has started
     def callback(self, ch, method, properties, body):
         Mesh.consummed += 1
-        print_flush(Mesh.consummed)
-        if Mesh.consummed % 10 == 0 : #display mesh status each 100 models received
+        if Mesh.consummed % 100 == 0 : #display mesh status each 100 models received
             Mesh.required_amount = SchedulerState.get_amount()
             Mesh.print_mesh_info("callback")
         # uncommment to reduce the amount of frames send during the esp declaration phase
@@ -324,7 +324,6 @@ class Mesh(Thread):
         b = body.decode('ascii')
         self.model.set_from_json(b)
         tmp = Websock.get_esp_state()
-        print_flush("get_esp_state returns :".format(tmp))
         if tmp != None and eval(tmp) != self.previous_state:
             Mesh.change_esp_state = True
             print_flush("tmp != None, tmp = {}".format(tmp))

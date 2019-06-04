@@ -1,104 +1,164 @@
+import socket
+from random import randint
+from time import sleep
 from crc import Checksum
 from mesh_communication import Frame
 from threading import Thread
 from mesh_constants import *
-import socket
 
+class esp32:
+    @staticmethod
+    def __gen_mac(fst):
+        str_mac = str(fst)
+        for i in range(1, MAC_SIZE):
+            str_mac += ":{}".format(randint(0,255))
+        return str_mac
 
-class Mock_esp(Thread):
-    def __init__(self, mac='2:4:8:16:32:64'):
+    def __init__(self, num, row, col):
+        self.row = row
+        self.col = col
+        self.ind = None
+        self.state = STATE_INIT
+        self.mac = esp32.__gen_mac(num)
+
+class Mock_mesh(Thread):
+
+    def __init__(self, row=1, col=1):
         Thread.__init__(self)
         self.frame = Frame()
         self.crc = Checksum()
-        self.mac = mac
-        self.ind = None
-        self.state = STATE_INIT
-        self.routing_table = [None for i in range(FRAME_SIZE)]
-        self.connection = socket.create_connection((HOST, PORT))
-        self.connection.settimeout(20)
+
+        self.co_server = socket.create_connection((HOST, PORT))
+        self.co_server.settimeout(90)
+        self.sended = 1
+        self.nb_pixels = row*col
+        self.rows = row
+        self.cols = col
+        self.frontage = [[(0,0,0) for i in range(self.cols)] for j in range(self.rows)]
+        self.esps = [None for i in range(self.nb_pixels)]
+        for i in range(self.nb_pixels):
+            self.esps[i] = esp32(i, i//row, i%col)
+        self.esp_root = self.esps[0]
+
+        self.general_state = STATE_INIT
 
     # send a beacon frame and wait for a install frame in return
     def state_init(self):
-        barray = self.frame.beacon(self.mac)
-        self.connection.send(barray)
-        data = self.connection.recv(1500)
+        barray = self.frame.beacon(self.esp_root.mac)
+        self.co_server.send(barray)
+        print("I send {}".format(barray))
+        data = self.co_server.recv(1500)
         print("I received : {} (type {})".format(data, data[TYPE]))
         if (data != "" and self.frame.is_valid(data[0:FRAME_SIZE])):
             if data[TYPE] == INSTALL:
                 mac = self.frame.array_to_mac(data[DATA:])
-                self.ind = int(data[DATA+MAC_SIZE])
-                print("I am {} in the routing table".format(self.ind))
-                self.routing_table[self.ind] = mac
-        self.state = STATE_CONF
+                ind = int(data[DATA+MAC_SIZE])
+                for i in range(self.nb_pixels):
+                    if mac == self.esps[i].mac:
+                        self.esps[i].state = STATE_CONF
+                        self.esps[i].ind = ind
+                        self.general_state = STATE_CONF
+                        break
+
+
 
     # relay beacon frame from other esp, update the routing table and send a
     # beacon_ack in return
-
     def state_conf(self):
-        data = self.connection.recv(1500)
-        print("I received : {} (type {})".format(data, data[TYPE]))
+        if self.sended < self.nb_pixels :
+            barray = self.frame.beacon(self.esps[self.sended].mac)
+            self.co_server.send(barray)
+            sleep(0.1)
+            self.sended += 1
+        data = self.co_server.recv(1500)
         if (data != "" and self.frame.is_valid(data[0:FRAME_SIZE])):
             if data[TYPE] == AMA:
+                print("I've received a AMA")
                 if data[DATA] == AMA_INIT:
-                    self.state = STATE_ADDR
+                    self.esp_root.state = STATE_ADDR
+                    for i in range(self.nb_pixels):
+                        if self.esps[i].state != STATE_ADDR:
+                            print("ERROR : an esp ({}) is not in the rightfull state".format(self.esps[i].mac))
+                            return
+                    self.general_state = STATE_ADDR
+                    # verifier que toutes soient dans l'état addr
                 elif data[DATA] == AMA_COLOR:
                     print("ERROR : amma_color should not be received here")
             if data[TYPE] == INSTALL:
                 mac = self.frame.array_to_mac(data[DATA:])
-                self.routing_table[int(data[DATA+MAC_SIZE])] = mac
-                # TODO beacon ack
+                ind = int(data[DATA+MAC_SIZE])
+                for i in range(self.nb_pixels):
+                    if mac == self.esps[i].mac:
+                        self.esps[i].state = STATE_ADDR
+                        self.esps[i].ind = ind
+                        print("{} has been acquitted".format(self.esps[i].mac))
+                        break
 
     # relay color frame during addressing operations
     def state_addr(self):
-        data = self.connection.recv(1500)
-        print("I received : {} (type {})".format(data, data[TYPE]))
+        data = self.co_server.recv(1500)
+        # print("I received : {} (type {})".format(data, data[TYPE]))
         llen = len(data)
         if (data != "" and self.frame.is_valid(data[0:llen])):
             if data[TYPE] == AMA:
                 if data[DATA] == AMA_COLOR:
-                    self.state = STATE_COLOR
+                    for i in range(self.nb_pixels):
+                        self.esps[i].state = STATE_CONF
+                    self.general_state = STATE_COLOR
                 elif data[DATA] == AMA_INIT:
                     print("ERROR : amma_init should not be received here")
             if data[TYPE] == COLOR:
                 print("Message color received")
-                if data[DATA] == self.ind:
-                    print("Displaying matrix")
-                    self.display_colors(data[DATA+2:])
-                else:
-                    print("ERROR : is not for me")
+                self.display_colors(data[DATA+2:])
+                sleep(0.1)
 
     # operational state : relay color frame
     def state_color(self):
-        data = self.connection.recv(1500)
+        data = self.co_server.recv(1500)
         llen = len(data)
-        print("I received : {} (type {})".format(data, data[TYPE]))
+        # print("I received : {} (type {})".format(data, data[TYPE]))
         if (data != "" and self.frame.is_valid(data[0:llen])):
             if data[TYPE] == COLOR:
                 self.display_colors(data[DATA+2:])
 
-    # manage all connection/deconnection problem
+    # manage all co_server/deconnection problem
     def state_error(self):
-        data = self.connection.recv(1500)
-        print("I received : {} (type {})".format(data, data[TYPE]))
+        data = self.co_server.recv(1500)
+        # print("I received : {} (type {})".format(data, data[TYPE]))
         if (data != "" and self.frame.is_valid(data[0:FRAME_SIZE])):
             pass
 
     def display_colors(self, colors):
-        print("COLOR : \tR\tG\tB\n\t\t{}\t{}\t{}".format(colors[0], colors[1], colors[2]))
+        for i in range(self.nb_pixels):
+            col = (int(colors[i*3]), int(colors[i*3+1]), int(colors[i*3+2]))
+            for j in range(self.nb_pixels):
+                if self.esps[j].ind == i :
+                    r = self.esps[j].row
+                    c = self.esps[j].col
+                    break
+            if r + c != -2:
+                self.frontage[r][c] = col
+            else:
+                print("esp not find")
+        print("\n\n=============================================================\n")
+        for row in self.frontage:
+            print("\t{}".format(row))
+        print("\n=============================================================\n\n")
+
 
     def run(self):
         while True:
             try :
-                print("I am currently in state {}".format(self.state))
-                if self.state == STATE_INIT:
+                # print("I am currently in state {}".format(self.general_state))
+                if self.general_state == STATE_INIT:
                     self.state_init()
-                elif self.state == STATE_CONF:
+                elif self.general_state == STATE_CONF:
                     self.state_conf()
-                elif self.state == STATE_ADDR:
+                elif self.general_state == STATE_ADDR:
                     self.state_addr()
-                elif self.state == STATE_COLOR:
+                elif self.general_state == STATE_COLOR:
                     self.state_color()
-                elif self.state == STATE_ERROR:
+                elif self.general_state == STATE_ERROR:
                     self.state_error()
                 else:
                     print("ERROR : state not defined")
@@ -108,5 +168,5 @@ class Mock_esp(Thread):
 
 
 if __name__ == '__main__':
-    esp = Mock_esp()
-    esp.start()
+    mesh = Mock_mesh(3,3)
+    mesh.start()
