@@ -8,7 +8,7 @@
 #include "mesh.h"
 #include "utils.h"
 #include "crc.h"
-#include "shared_buffer.h"
+// #include "shared_buffer.h"
 #include "state_machine.h"
 #include "thread.h"
 #include "display_color.h"
@@ -44,10 +44,6 @@ bool is_server_connected = false;
 
 /* Logical routing table*/
 int route_table_size = 0;
-
-/*******************************************************
- *                Function Declarations
- *******************************************************/
 
 /*******************************************************
  *                Function Definitions
@@ -141,7 +137,8 @@ void connect_to_server() {
 #if CONFIG_MESH_DEBUG_LOG
 	ESP_LOGW(MESH_TAG, "Connected to Server");
 #endif
-	xTaskCreate(server_reception, "SERRX", 6000, NULL, 5, NULL);
+	xTaskCreate(server_reception_v1, "SERRX", 6000, NULL, 5, NULL);
+  xTaskCreate(server_emission_v1, "SERTX", 6000, NULL, 5, NULL);
 	is_server_connected = true;
 	if (state != INIT) {
 	    uint8_t buf_send[FRAME_SIZE];
@@ -150,8 +147,7 @@ void connect_to_server() {
 	    buf_send[DATA] = ERROR_ROOT;
 	    buf_send[DATA+1] = state | (route_table_size << 4);
 	    copy_buffer(buf_send + DATA + 2, my_mac, 6);
-	    int head = write_txbuffer(buf_send, FRAME_SIZE);
-	    xTaskCreate(server_emission, "SERTX", 3072, (void *) head, 5, NULL);
+      xRingbufferSend(STQ, &buf_send, FRAME_SIZE, FOREVER);
 	}
     }
 }
@@ -162,35 +158,54 @@ void connect_to_server() {
  */
 void esp_mesh_state_machine(void * arg) {
     is_running = true;
-
-    while(is_running) {;
-	switch(state) {
-	case INIT:
-	    state_init();
-	    break;
-	case CONF :
-	    state_conf();
-	    vTaskDelay(1 / portTICK_PERIOD_MS);
-	    break;
-	case ADDR :
-	    state_addr();
-	    vTaskDelay(1 / portTICK_PERIOD_MS);
-	    break;
-	case COLOR :
-	    state_color();
-	    vTaskDelay(1 / portTICK_PERIOD_MS);
-	    break;
-	case ERROR_S :
-	    state_error();
-	    vTaskDelay(1 / portTICK_PERIOD_MS);
-	    break;
-	default :
+    uint8_t * buf_recv = NULL;
+    size_t size = 0;
+    while(is_running) {
+        buf_recv = (uint8_t *) xRingbufferReceive(RQ, &size, 10);
+        if (buf_recv != NULL){
 #if CONFIG_MESH_DEBUG_LOG
-	    ESP_LOGE(MESH_TAG, "ESP entered unknown state %d", state);
-#else
-	    abort();
+        ESP_LOGI(MESH_TAG, "Received a message from of %d", size);
 #endif
-	}
+        }  else {
+            if (state != INIT){
+              vTaskDelay(1 / portTICK_PERIOD_MS);
+              continue;
+            }
+        }
+        switch(state) {
+        case INIT:
+            state_init(buf_recv);
+            break;
+        case CONF :
+            state_conf(buf_recv);
+            vTaskDelay(1 / portTICK_PERIOD_MS);
+            break;
+        case ADDR :
+            state_addr(buf_recv);
+            vTaskDelay(1 / portTICK_PERIOD_MS);
+            break;
+        case COLOR :
+            state_color(buf_recv);
+            vTaskDelay(1 / portTICK_PERIOD_MS);
+            break;
+        case ERROR_S :
+            state_error(buf_recv);
+            vTaskDelay(1 / portTICK_PERIOD_MS);
+            break;
+        case REBOOT_S :
+            state_reboot(buf_recv);
+            vTaskDelay(1 / portTICK_PERIOD_MS);
+            break;
+        default :
+#if CONFIG_MESH_DEBUG_LOG
+            ESP_LOGE(MESH_TAG, "ESP entered unknown state %d => RESTART", state);
+#endif
+            esp_restart();
+        }
+        if (buf_recv != NULL){
+            vRingbufferReturnItem(RQ, buf_recv);
+            buf_recv = NULL;
+        }
     }
     vTaskDelete(NULL);
 }
@@ -222,10 +237,25 @@ void blink_task(void *pvParameter)
 esp_err_t esp_mesh_comm_p2p_start(void)
 {
     if (!is_comm_p2p_started) {
-        is_comm_p2p_started = true;
-	xTaskCreate(mesh_reception, "ESPRX", 3072, NULL, 5, NULL);
-	xTaskCreate(esp_mesh_state_machine, "STMC", 3072, NULL, 5, NULL);
-	xTaskCreate(blink_task, "blink_task", 3072, NULL, 5, NULL);
+      is_comm_p2p_started = true;
+      MTQ = xRingbufferCreate(100*(FRAME_SIZE+8), RINGBUF_TYPE_NOSPLIT);
+      STQ = xRingbufferCreate(100*(FRAME_SIZE+8), RINGBUF_TYPE_NOSPLIT);
+      RQ = xRingbufferCreate(10*(FRAME_SIZE+8)*(CONFIG_MESH_ROUTE_TABLE_SIZE * 3 + 5 + (CONFIG_MESH_ROUTE_TABLE_SIZE * 3 + 4)/7 +8), RINGBUF_TYPE_NOSPLIT);
+      #if CONFIG_MESH_DEBUG_LOG
+      if (MTQ == NULL){
+        ESP_LOGE(MESH_TAG, "MTQ Ringbuffer has not been allocated");
+      }
+      if (STQ == NULL){
+        ESP_LOGE(MESH_TAG, "STQ Ringbuffer has not been allocated");
+      }
+      if (RQ == NULL){
+        ESP_LOGE(MESH_TAG, "RQ Ringbuffer has not been allocated");
+      }
+      #endif
+      xTaskCreate(mesh_reception_v1, "ESPRX", 6144, NULL, 5, NULL);
+      xTaskCreate(mesh_emission_v1, "ESPTX", 6144, NULL,5,NULL);
+      xTaskCreate(esp_mesh_state_machine, "STMC", 6144, NULL, 5, NULL);
+      // xTaskCreate(blink_task, "blink_task", 3072, NULL, 5, NULL);
     }
     return ESP_OK;
 }
@@ -240,11 +270,7 @@ void error_child_disconnected(uint8_t *mac) {
     buf_send[DATA] = ERROR_DECO;
     buf_send[DATA+1] = 0;
     copy_buffer(buf_send + DATA + 2, mac, 6);
-    int head = write_txbuffer(buf_send, FRAME_SIZE);
-#if CONFIG_MESH_DEBUG_LOG
-    ESP_LOGW(MESH_TAG, "Head received for error transmission : %d", head);
-#endif
-    xTaskCreate(mesh_emission, "ESPTX", 3072, (void *) head, 5, NULL);
+    xRingbufferSend(MTQ, &buf_send, FRAME_SIZE, FOREVER);
 }
 
 void send_beacon_on_disco() {
@@ -255,8 +281,7 @@ void send_beacon_on_disco() {
     buf_send[VERSION] = SOFT_VERSION;
     buf_send[TYPE] = BEACON;
     copy_mac(my_mac, buf_send+DATA);
-    int head = write_txbuffer(buf_send, FRAME_SIZE);
-    xTaskCreate(mesh_emission, "ESPTX", 3072, (void *) head, 5, NULL);
+    xRingbufferSend(MTQ, &buf_send, FRAME_SIZE, FOREVER);
 }
 
 /**
@@ -447,6 +472,7 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_mesh_set_max_layer(CONFIG_MESH_MAX_LAYER));
     ESP_ERROR_CHECK(esp_mesh_set_vote_percentage(1));
     ESP_ERROR_CHECK(esp_mesh_set_ap_assoc_expire(10));
+    ESP_ERROR_CHECK(esp_mesh_allow_root_conflicts(false));
 #ifdef MESH_FIX_ROOT
     ESP_ERROR_CHECK(esp_mesh_fix_root(1));
 #endif

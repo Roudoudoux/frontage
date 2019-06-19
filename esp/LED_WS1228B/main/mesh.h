@@ -8,10 +8,10 @@
 #include "esp_mesh.h"
 #include "esp_mesh_internal.h"
 #include <driver/gpio.h>
-
+#include "freertos/ringbuf.h"
 
 #define TIME_SLEEP 5 //time in seconds
-#define SOFT_VERSION 1
+#define SOFT_VERSION 2
 #define SEQU_SEUIL 60000
 
 #define RX_SIZE          (1500)
@@ -21,8 +21,10 @@
 
 #define VERSION 0
 #define TYPE 1
+#define SUB_TYPE 2
 #define DATA 2
 #define CHECKSUM 15
+#define HEADER_SIZE 2
 #define FRAME_SIZE 16
 
 /* Frames types */
@@ -34,6 +36,8 @@
 #define COLOR_E 5
 #define AMA 6
 #define ERROR 7
+#define REBOOT 8
+#define LOG 9
 
 /* AMA sub types */
 
@@ -55,6 +59,7 @@
 #define ADDR 3
 #define COLOR 4
 #define ERROR_S 5
+#define REBOOT_S 6
 
 /* Colors Miscellaneous */
 
@@ -63,6 +68,11 @@
 #define OUTPUT GPIO_MODE_OUTPUT
 #define INPUT GPIO_MODE_INPUT
 
+
+#define MAC_SIZE 6
+#define FOREVER (15000 / portTICK_PERIOD_MS)
+
+RingbufHandle_t STQ, RQ, MTQ;
 /*******************************************************
  *                Structures
  *******************************************************/
@@ -83,7 +93,7 @@ extern bool is_running;
 extern bool is_mesh_connected;
 extern mesh_addr_t mesh_parent_addr;
 extern int mesh_layer;
-extern uint8_t my_mac[6];
+extern uint8_t my_mac[MAC_SIZE];
 extern unsigned int state;
 extern bool is_asleep;
 extern uint16_t current_sequence;
@@ -143,7 +153,7 @@ esp_err_t esp_mesh_comm_p2p_start(void);
 
 /**
  * @brief Send a message to the root notifying that a child disconnection event happened, or a child answers with the NO_ROUTING error.
- */    
+ */
 void error_child_disconnected(uint8_t *);
 
 /**
@@ -161,6 +171,6 @@ void mesh_event_handler(mesh_event_t);
  */
 void app_main(void);
 
-    
+
 
 #endif

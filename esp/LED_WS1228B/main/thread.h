@@ -9,7 +9,7 @@
  *
  * @attention The Watchdog is resetted automatically as esp_mesh_recv is an blocking call while no message have been received.
  */
-void mesh_reception(void * arg);
+void mesh_reception_v1(void * arg);
 
 
 /**
@@ -19,7 +19,7 @@ void mesh_reception(void * arg);
  *
  * @attention The Watchdog is resetted automatically as esp_mesh_recv is an blocking call while no message have been received.
  */
- void server_reception(void * arg);
+ void server_reception_v1(void * arg);
 
 
  /**
@@ -28,7 +28,7 @@ void mesh_reception(void * arg);
   * - Then, depending on the type of the message, it will either be sent to a specific card, or to the whole mesh.
   * - This Task is created when the message must be sent, and destroyed afterwards.
   */
-  void mesh_emission(void * arg);
+  void mesh_emission_v1(void * arg);
 
 
   /**
@@ -39,6 +39,6 @@ void mesh_reception(void * arg);
    *
    * @attention Only the root card can use this
    */
-   void server_emission(void * arg);
+   void server_emission_v1(void * arg);
 
 #endif
