@@ -8,7 +8,8 @@
 #include "mesh.h"
 #include "utils.h"
 #include "crc.h"
-// #include "shared_buffer.h"
+#include "logs.h"
+#include <esp_timer.h>
 #include "state_machine.h"
 #include "thread.h"
 #include "display_color.h"
@@ -137,8 +138,8 @@ void connect_to_server() {
 #if CONFIG_MESH_DEBUG_LOG
 	ESP_LOGW(MESH_TAG, "Connected to Server");
 #endif
-	xTaskCreate(server_reception_v1, "SERRX", 6000, NULL, 5, NULL);
-  xTaskCreate(server_emission_v1, "SERTX", 6000, NULL, 5, NULL);
+	xTaskCreate(server_reception, "SERRX", 6000, NULL, 5, NULL);
+  xTaskCreate(server_emission, "SERTX", 6000, NULL, 5, NULL);
 	is_server_connected = true;
 	if (state != INIT) {
 	    uint8_t buf_send[FRAME_SIZE];
@@ -159,16 +160,21 @@ void connect_to_server() {
 void esp_mesh_state_machine(void * arg) {
     is_running = true;
     uint8_t * buf_recv = NULL;
+    uint8_t log_buffer[150];
     size_t size = 0;
     while(is_running) {
         buf_recv = (uint8_t *) xRingbufferReceive(RQ, &size, 10);
         if (buf_recv != NULL){
+          char log_msg[50];
+          int log_msg_size = sprintf(log_msg, "Received a message of %d", size);
+          int lsize = log_length(log_msg_size);
+          log_format(buf_recv, log_buffer, log_msg, log_msg_size);
+          log_send(log_buffer, lsize);
 #if CONFIG_MESH_DEBUG_LOG
-        ESP_LOGI(MESH_TAG, "Received a message from of %d", size);
+          ESP_LOGI(MESH_TAG, "Received a message from of %d", size);
 #endif
         }  else {
             if (state != INIT){
-              vTaskDelay(1 / portTICK_PERIOD_MS);
               continue;
             }
         }
@@ -178,23 +184,18 @@ void esp_mesh_state_machine(void * arg) {
             break;
         case CONF :
             state_conf(buf_recv);
-            vTaskDelay(1 / portTICK_PERIOD_MS);
             break;
         case ADDR :
             state_addr(buf_recv);
-            vTaskDelay(1 / portTICK_PERIOD_MS);
             break;
         case COLOR :
             state_color(buf_recv);
-            vTaskDelay(1 / portTICK_PERIOD_MS);
             break;
         case ERROR_S :
             state_error(buf_recv);
-            vTaskDelay(1 / portTICK_PERIOD_MS);
             break;
         case REBOOT_S :
             state_reboot(buf_recv);
-            vTaskDelay(1 / portTICK_PERIOD_MS);
             break;
         default :
 #if CONFIG_MESH_DEBUG_LOG
@@ -252,10 +253,9 @@ esp_err_t esp_mesh_comm_p2p_start(void)
         ESP_LOGE(MESH_TAG, "RQ Ringbuffer has not been allocated");
       }
       #endif
-      xTaskCreate(mesh_reception_v1, "ESPRX", 6144, NULL, 5, NULL);
-      xTaskCreate(mesh_emission_v1, "ESPTX", 6144, NULL,5,NULL);
+      xTaskCreate(mesh_reception, "ESPRX", 6144, NULL, 5, NULL);
+      xTaskCreate(mesh_emission, "ESPTX", 6144, NULL,5,NULL);
       xTaskCreate(esp_mesh_state_machine, "STMC", 6144, NULL, 5, NULL);
-      // xTaskCreate(blink_task, "blink_task", 3072, NULL, 5, NULL);
     }
     return ESP_OK;
 }

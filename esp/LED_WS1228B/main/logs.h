@@ -8,10 +8,8 @@
   * |  1 Byte      | 1 Byte |   6 Bytes   |  8 Bytes  | 2 Bytes        |          x Bytes               | y Bytes  |
   * |______________|________|_____________|___________|________________|________________________________|__________|
   */
+int log_length(int log_msg_size);
 
-/**
-  * Brief : compute the log frame size from the string which is to be transmitted.
-  */
-int log_length(char * log_msg);
+void log_format(uint8_t* frame, uint8_t *log_frame, char *log_msg, int log_size);
 
-void log_format(uint8_t* frame, uint8_t *log_frame, int log_size);
+void log_send(uint8_t* log_frame, int log_size);

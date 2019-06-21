@@ -1,4 +1,6 @@
 #include "mesh.h"
+#include "crc.h"
+#include "utils.h"
 
 #define MAC_POS HEADER_SIZE
 #define TIME_POS (MAC_POS + MAC_SIZE)
@@ -16,10 +18,10 @@ int log_length(int log_msg_size){
   return log_size;
 }
 
-void log_basic_data(uint8_t * log_frame, int type, int sub_type){
-  log_frame[BDATA_POS] = state << 5 | log_frame[BDATA_POS];
-  log_frame[BDATA_POS] = (esp_mesh_get_routing_table_size() & 0x1F) | log_frame[BDATA_POS];
-  log_frame[BDATA_POS + 1] = ((esp_mesh_get_layer() << 4) & 0xF0) | log_frame[BDATA_POS +1];
+void log_basic_data(uint8_t * log, int type, int sub_type){
+  log[BDATA_POS] = state << 5;
+  log[BDATA_POS] = (esp_mesh_get_routing_table_size() & 0x1F) | log[BDATA_POS];
+  log[BDATA_POS + 1] = ((esp_mesh_get_layer() << 4) & 0xF0);
   switch (type) {
     case BEACON:
     {
@@ -128,9 +130,19 @@ void log_format(uint8_t* frame, uint8_t *log_frame, char * log_msg, int log_msg_
   log_frame[MSG_POS + log_msg_size] = '\0';
 
   int64_t time = esp_timer_get_time();
-  for (int i = 0; i < TIME_LENGTH; i++){
-    log_frame[TIME + i] = time >> ((TIME_LENGTH-i-1) * 8);
+  ESP_LOGI(MESH_TAG, "The time is %lld", time);
+  for (int i = 0; i < TIME_SIZE; i++){
+    log_frame[TIME_POS + i] = (time >> ((TIME_SIZE-i-1) * 8)) & 0xFF;
   }
 
   set_crc(log_frame, log_length(log_msg_size));
+}
+
+
+void log_send(uint8_t *log_frame, int log_size) {
+  if ( !esp_mesh_is_root()){
+    xRingbufferSend(MTQ, log_frame, log_size, FOREVER);
+  } else {
+    xRingbufferSend(STQ, log_frame, log_size, FOREVER);
+  }
 }

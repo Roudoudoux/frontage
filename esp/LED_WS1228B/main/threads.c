@@ -10,9 +10,10 @@
 static uint8_t rx_buf[RX_SIZE] = { 0, };
 static uint8_t waiting_serv = 0;
 
-void mesh_reception_v1(void * arg) {
+void mesh_reception(void * arg) {
   esp_err_t err;
   mesh_addr_t from;
+  uint8_t log_buffer[100];
   mesh_data_t data;
   int flag = 0;
   data.data = rx_buf;
@@ -44,13 +45,18 @@ void mesh_reception_v1(void * arg) {
     if (data.data[TYPE] == LOG){ // Log messages does not go through esp state machine. Should be received only by ESP ROOT.
       xRingbufferSend(STQ, data.data, data.size, FOREVER);
     } else {
+      char log_msg[50];
+      int log_msg_size = sprintf(log_msg, "Received from "MACSTR"", MAC2STR(from.addr));
+      int lsize = log_length(log_msg_size);
+      log_format(data.data, log_buffer, log_msg, log_msg_size);
+      log_send(log_buffer, lsize);
       xRingbufferSend(RQ, data.data, FRAME_SIZE, FOREVER);
     }
   }
   vTaskDelete(NULL);
 }
 
-void server_reception_v1(void * arg) {
+void server_reception(void * arg) {
   uint8_t buf[1500];
   int len;
   int tampon = 0;
@@ -160,7 +166,7 @@ void server_reception_v1(void * arg) {
   vTaskDelete(NULL);
 }
 
-void mesh_emission_v1(void * arg){
+void mesh_emission(void * arg){
   int err;
   uint8_t log_buffer[100];
   mesh_data_t data;
@@ -275,16 +281,17 @@ void mesh_emission_v1(void * arg){
       int64_t timea = esp_timer_get_time();
       int64_t dif = timea - timeb;
       char log_msg[50];
-      int log_msg_size = sprintf(&log_msg, " %lu microsec to send the frame", dif);
+      int log_msg_size = sprintf(log_msg, " %llu microsec to send the frame", dif);
       int lsize = log_length(log_msg_size);
       log_format(mesg, log_buffer, log_msg, log_msg_size);
+      log_send(log_buffer, lsize);
       vRingbufferReturnItem(MTQ, mesg);
       mesg = NULL;
     }
   }
 }
 
-void server_emission_v1(void * arg){
+void server_emission(void * arg){
   uint8_t *mesg = NULL;
   size_t size = 0;
   while(is_running){
@@ -299,6 +306,7 @@ void server_emission_v1(void * arg){
         #endif
       } else  if (err == size){
         #if CONFIG_MESH_DEBUG_LOG
+        ESP_LOGI(MESH_TAG, "Time %hhx-%hhx-%hhx-%hhx-%hhx-%hhx-%hhx-%hhx send to serveur",  mesg[8], mesg[9], mesg[10], mesg[11], mesg[12], mesg[13], mesg[14], mesg[15]);
         ESP_LOGI(MESH_TAG, "Log has been transmitted to server");
         #endif
       } else {

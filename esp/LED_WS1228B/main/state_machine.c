@@ -50,7 +50,7 @@ void state_init(uint8_t *buf_recv) {
         return;
       }
     }
-    else if (type == ERROR) { 
+    else if (type == ERROR) {
       copy_buffer(buf_err, buf_recv, FRAME_SIZE);
       if (buf_err[DATA] != ERROR_GOTO) {
         buf_err[DATA+1] = buf_err[DATA+1] | state;
@@ -169,8 +169,6 @@ void state_addr(uint8_t *buf_recv) {
 	if (!same_mac(route_table[i].card.addr, my_mac)) {
 	  if (route_table[i].state) {
       xRingbufferSend(MTQ, &buf_send,FRAME_SIZE, FOREVER);
-	    // int head = write_txbuffer(buf_send, FRAME_SIZE);
-	    // xTaskCreate(mesh_emission, "ESPTX", 3072, (void *) head, 5, NULL);
 	  }
 	} else {
 	  display_color(buf_send);
@@ -180,7 +178,6 @@ void state_addr(uint8_t *buf_recv) {
   }
   else if (type == REBOOT) {
     state = REBOOT_S;
-    // write_rxbuffer(buf_recv, FRAME_SIZE);
   }
   else if (type == COLOR_E) {//Mixed
     uint16_t sequ = buf_recv[DATA]  << 8 | buf_recv[DATA+1];
@@ -194,8 +191,6 @@ void state_addr(uint8_t *buf_recv) {
       if (esp_mesh_is_root()) {
 	copy_buffer(buf_send, buf_recv, FRAME_SIZE);
   xRingbufferSend(MTQ, &buf_send, FRAME_SIZE, FOREVER);
-	// int head = write_txbuffer(buf_send, FRAME_SIZE);
-	// xTaskCreate(mesh_emission, "ESPTX", 3072,  (void *) head, 5, NULL);
       }
       state = COLOR;
 #if CONFIG_MESH_DEBUG_LOG
@@ -236,7 +231,6 @@ void state_color(uint8_t *buf_recv) {
     }
   }
 
-  // read_rxbuffer(buf_recv);
   type = type_mesg(buf_recv);
 
   if (type == COLOR) { // Root only
@@ -255,8 +249,6 @@ void state_color(uint8_t *buf_recv) {
 	if (!same_mac(route_table[i].card.addr, my_mac)) {
 	  if (route_table[i].state) {
       xRingbufferSend(MTQ, &buf_send, FRAME_SIZE, FOREVER);
-	    // int head = write_txbuffer(buf_send, FRAME_SIZE);
-	    // xTaskCreate(mesh_emission, "ESPTX", 3072, (void *) head, 5, NULL);
 	  }
 	} else {
 	  display_color(buf_send);
@@ -266,7 +258,6 @@ void state_color(uint8_t *buf_recv) {
   }
   else if (type == REBOOT) {
     state = REBOOT_S;
-    // write_rxbuffer(buf_recv, FRAME_SIZE);
   }
   else if (type == COLOR_E) {//Mixed
     uint16_t sequ = buf_recv[DATA] << 8 | buf_recv[DATA+1];
@@ -398,7 +389,6 @@ ESP_LOGI(MESH_TAG, "Entered Error state");
   }
   else if (type == REBOOT) {
     state = REBOOT_S;
-    // write_rxbuffer(buf_recv, FRAME_SIZE);
   }
   else if (type == ERROR) {
 #if CONFIG_MESH_DEBUG_LOG
