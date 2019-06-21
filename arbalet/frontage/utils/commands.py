@@ -5,21 +5,196 @@ from threading import Thread, Semaphore
 from queue import Queue
 from mesh_communication import Frame
 from mesh_constants import *
+from time import time_ns
+from termcolor import COLORS, colored
 
-FRONTAGE_PATH = "/home/thor/Svartalfheim/frontage"
+FRONTAGE_PATH = "/home/thor/Svartalfheim/frontage/"
+MAC_POS = 2
+TIME_POS = MAC_POS + MAC_SIZE
+TIME_SIZE = 8
+BDATA_POS = TIME_POS + TIME_SIZE
+BDATA_SIZE = 2
+LOG_POS = BDATA_POS + BDATA_SIZE
+
+class ESP:
+    def __init__(self, mac, frame, state, start_time, layer, nb_subtree, color):
+        self.mac = mac
+        self.current_log = 0
+        self.state = state
+        self.rtime = start_time
+        self.lasttime = start_time
+        self.atime = time_ns()
+        self.lastframe = frame
+        self.layer = layer
+        self.nb_child = nb_subtree
+        self.color = color
+
+    def incr_current(self):
+        self.current_log += 1
+
+    def get_current(self):
+        return self.current_log
+
+    def reset_current(self):
+        self.current_log = 0
+
+    def get_color(self):
+        return self.color
+
+    def get_esp_time(self):
+        return self.rtime
+
+    def change_state(self, nstate):
+        if (nstate != self.state):
+            log_info = "State : {} => {}".format(self.state, nstate)
+            self.state = nstate
+        else:
+            log_info = "State : {}".format(self.state)
+        return log_info
+
+    def change_layer(self, nlayer):
+        if (nlayer != self.layer):
+            log_info = "Layer : {} => {}".format(self.layer, nlayer)
+            self.layer = nlayer
+        else:
+            log_info = "Layer : {}".format(self.layer)
+        return log_info
+
+    def change_nb_child(self, nnb_child):
+        if (nnb_child != self.nb_child):
+            log_info = "Childs : {} => {}".format(self.nb_child, nnb_child)
+            self.nb_child = nnb_child
+        else:
+            log_info = "Childs : {}".format(self.nb_child)
+        return log_info
+
+    def update_lastframe(self, nframe, nlasttime):
+        self.lasttime = nlasttime
+        self.lastframe = nframe
+        log_info = "Frame : {}".format(self.lastframe)
+        return log_info
+
+    def update(self, frame, state, time, layer, nb_subtree, augmented_info=False):
+        log_esp =  "\n\t" + self.change_layer(layer)
+        log_esp += "\n\t" + self.change_nb_child(nb_subtree)
+        log_esp += "\n\t" + self.change_state(state)
+        log_esp += "\n\t" + self.update_lastframe(frame, time)
+        if augmented_info:
+            return log_esp
+        else:
+            return ""
 
 class Logs(Thread):
     file = None
+    stdin = None
+    stdout = None
+    semin = None
+    semout = None
     nb_logs = 0
-    path = FRONTAGE_PATH + "/arbalet/frontage/logs/"
-    def __init__(self, name = None):
+    path = FRONTAGE_PATH + "logs/"
+    running = False
+
+    def __init__(self, opt_info=0, infile = True, name = None):
         Thread.__init__(self)
+        Logs.running = True
+        self.opt_info = opt_info
+        self.ref_time = time_ns()
+        self.available_colors = [co for co in COLORS]
+        Logs.stdin = Queue()
+        Logs.stdout = Queue()
+        Logs.semout = Semaphore(0)
+        Logs.semin = Semaphore(0)
+        self.frame = Frame()
+        if infile:
+            self.save = True
+            if (name is None):
+                name = "logs_"+nb_logs+".log"
+            self.file = open(Logs.path + name + ".log", 'wt')
+        else:
+            self.save = False
+        self.esp = {}
 
-        if (name is None):
-            name = "logs_"+nb_logs+".log"
-        Logs.file = open(Logs.path + name, 'wt')
-        
+    def get_log_time(self, time_array):
+        rtime = 0
+        for i in range(TIME_SIZE):
+            rtime = rtime | (time_array[i] << ((TIME_SIZE -i-1)*8))
+        return rtime
 
+    def get_log_frame(self, array):
+        frame = { 0x01 : "BEACON",
+                  0x02 : "B_ACK",
+                  0x03 : "INSTALL",
+                  0x04 : "COLOR",
+                  0x05 : "COLOR_E",
+                  0x06 : "AMA_INIT",
+                  0x07 : "AMA_COLOR",
+                  0x08 : "AMA_REPRISE",
+                  0x09 : "ERROR_CO",
+                  0x0A : "ERROR_DECO",
+                  0x0B : "ERROR_GOTO",
+                  0x0C : "ERROR_ROOT",
+                  0x0D : "REBOOT",
+                  0x0F : "UNKOWN"}
+        return frame[array[1] & 0x0F]
+
+    def get_log_layer(self, array):
+        return (array[1] & 0xF0) >> 4
+
+    def get_log_state(self, array):
+        state = { 0x00 : "UNKOWN",
+                  0x01 : "INIT",
+                  0x02 : "CONF",
+                  0x03 : "ADDR",
+                  0x04 : "COLOR",
+                  0x05 : "ERROR",
+                  0x06 : "REBOOT",
+                  0x07 : "UNKOWN"}
+        return state[(array[0] & 0xE0) >> 5]
+
+    def get_log_childs(self, array):
+        return (array[0] & 0x1F)
+
+    def get_log_msg(self, array):
+        msg = ""
+        i = 0
+        while (array[i] != 0):
+            msg += chr(array[i])
+            i += 1
+        return msg
+
+    def save_frame(self, log_frame):
+        mac = self.frame.array_to_mac(log_frame[MAC_POS:MAC_POS+MAC_SIZE])
+        rtime = self.get_log_time(log_frame[TIME_POS:TIME_POS+TIME_SIZE])
+        layer = self.get_log_layer(log_frame[BDATA_POS:BDATA_POS+BDATA_SIZE])
+        childs = self.get_log_childs(log_frame[BDATA_POS:BDATA_POS+BDATA_SIZE])
+        state = self.get_log_state(log_frame[BDATA_POS:BDATA_POS+BDATA_SIZE])
+        frame = self.get_log_frame(log_frame[BDATA_POS:BDATA_POS+BDATA_SIZE])
+        log = self.get_log_msg(log_frame[LOG_POS:])
+        if (self.esp.get(mac) is None): # A new esp
+            color = self.available_colors[(len(self.esp)) % (len(COLORS))]
+            lesp = ESP(mac, frame, state, rtime, layer, childs, color)
+            self.esp[mac] = lesp
+        else:
+            lesp = self.esp[mac]
+        opt_info = lesp.update(frame, state, rtime, layer, childs, True)
+        lesp.incr_current()
+        if (lesp.get_current() >= self.opt_info):
+            lesp.reset_current()
+            msg = "{} ns : {}{}\n\tLog : {}\n\tEsp time : {} µs".format(time_ns() - self.ref_time, mac, opt_info, log, rtime - lesp.get_esp_time())
+        else:
+            msg = "{} ns : {}\n\tLog : {}\n\tEsp time : {} µs".format(time_ns() - self.ref_time, mac, log, rtime - lesp.get_esp_time())
+        if self.save:
+            self.file.write(colored(msg, lesp.get_color()))
+        Logs.stdout.put(colored(msg, lesp.get_color()))
+        Logs.semout.release()
+
+    def run(self):
+        while Logs.running:
+            if Logs.semin.acquire(False):
+                log_frame = Logs.stdin.get()
+                self.save_frame(log_frame)
+        if self.save:
+            self.file.close()
 
 class Commands(Thread):
     pending_queue = None
@@ -51,11 +226,16 @@ class Commands(Thread):
                           "m" : "msg",
                           "d" : "display",
                           "exec" : "script",
+                          "l" : "log",
                           "e" : "exit" }
         self.commands = {"help":("cmd", "if no arg display general list of commands"),
                          "start-server": ("", "start the server application"),
                          "sender-auto": ("True|False", "the server will manage automatically the sending of messages (default True)"),
                          "addressing": ("", "start an addressing procedure"),
+                         "log": ("augmented_info file name","manage the log received from mesh network\n\
+        augmented_info : number of log received for a particular esp spacing augmented log output\n\
+        file : enable saving log in a persistant file (False by default)\n\
+        name : the name to give at the log file. if none is given, one will be generated automaically (optional)"),
                          "msg":("TYPE DATA","TYPE : INSTALL | ERR-GOTO | REBOOT | COLOR\n\
         DATA : \n\
         \tINSTALL implies a mac address and a index as data, if none is given will do automatically\n\
@@ -67,8 +247,12 @@ class Commands(Thread):
         \t-matrix : prints the color matrix in server memory;\n\
         \t-all : prints all the messages in pending in the queue"),
                          "script":("file","file has to be a relative path to a file in .spt which contains a scenario"),
-                         "stop" : ("","stops the server (sever, mesh and listen instances are closed)"),
+                         "stop" : ("","stops the server (sever, logs, mesh and listen instances are closed)"),
                          "exit" : ("", "exit properly the application")}
+
+    def start_log(self, opt_info, file=False, name=None):
+        self.logsthread = Logs(eval(opt_info), file, name)
+        self.logsthread.start()
 
     # OK
     def execute(self, cmd, args=[None]):
@@ -76,6 +260,13 @@ class Commands(Thread):
             self.help(args[0])
         elif (cmd == "start-server" or cmd == "ss"):
             self.start_server()
+        elif (cmd == "log" or cmd == "l"):
+            if (len(args) == 1):
+                self.start_log(args[0])
+            elif (len(args) == 2):
+                self.start_log(args[0], args[1])
+            elif (len(args) == 3):
+                self.start_log(args[0], args[1], args[2])
         elif (cmd == "sender-auto" or cmd == "sa"):
             self.send_method(args[0])
         elif (cmd == "addressing" or cmd == "a"):
@@ -133,11 +324,14 @@ class Commands(Thread):
     # OK
     def stop_server(self):
         Server.running = False
+        Logs.running = False
         if (self.server is not None):
             print("Waiting for Server ...")
             self.server.join()
         while self.nmsg.acquire(False):
             print(self.pending_queue.get())
+        while Logs.semout.acquire(False):
+            print(Logs.stdout.get())
 
     # OK
     def app_exit(self):
@@ -165,6 +359,16 @@ class Commands(Thread):
         elif (arg == "model"):
             for row in Mesh.model:
                 print("\t{}".format(row))
+        elif (arg == "log"):
+            count = 0
+            while Logs.semout.acquire(False):
+                msg = Logs.stdout.get(False)
+                print(msg)
+                count += 1
+            if (count == 0):
+                print("No log in the queue")
+            else:
+                print("No more logs")
         else:
             try:
                 zcorp = eval(arg)
@@ -214,16 +418,13 @@ class Commands(Thread):
             else :
                 rinput = input("> ")
                 agrs = rinput.split(" ")
-                # print("args input are : {}".format(agrs))
                 cmd = self.commands.get(agrs[0])
                 scmd = self.shortcuts.get(agrs[0])
                 if (cmd is None and scmd is None):
                     self.help()
                 else:
-                    # print("cmd : {}".format(cmd))
                     self.execute(agrs[0], agrs[1:] if agrs[1:] != [] else [None])
         self.app_exit()
-
 
 # Yet to see if ok
 class Listen(Thread):
@@ -263,6 +464,10 @@ class Listen(Thread):
         pmsg = "\tSENDING TABLE: END\n"
         self.p_queue.put(pmsg)
         self.p_sem.release()
+
+    def log_handler(self, data):
+        Logs.stdin.put(data)
+        Logs.semin.release()
 
     def beacon_handler(self, data):
         mac = self.msg.array_to_mac(data[DATA:DATA+MAC_SIZE])
@@ -355,11 +560,13 @@ class Listen(Thread):
             data = self.com.recv(1500)
         except:
             return
-        if (data != FRAME_SIZE and self.msg.is_valid(data)):
+        if (len(data) >= FRAME_SIZE and self.msg.is_valid(data)):
             if (data[TYPE] == ERROR):
                 self.error_handler(data)
             elif (data[TYPE] == BEACON):
                 self.beacon_handler(data)
+            elif (data[TYPE] == LOG):
+                self.log_handler(data)
             else:
                 pmsg = "MESSAGE {} is not supposed to happen.\n\tRECEIVED: ".format(self.count)
                 for bit in data:

@@ -4,7 +4,7 @@ HOST='0.0.0.0' #IP address to listen to. Can be set to 0.0.0.0 to listen to ever
 PORT=9988 # Port to which the server will be binded. Connection request will be done to this port.
 
 #Software version
-SOFT_VERSION = 1
+SOFT_VERSION = 2
 
 #Frame's type
 BEACON = 1 #Declaration frame
@@ -12,7 +12,8 @@ INSTALL = 3 #Frame which acts both as acknowledgement, and trigger to update rou
 COLOR = 4 #Frame containing colors triplet for all declared cards.
 AMA = 6 #Frame related to the Addressing procedure
 ERROR = 7 #Frame indicating that an error occured, or is being handled.
-SLEEP = 8 #Unused frame
+REBOOT = 8 #Frame to reboot all esps
+LOG = 9 #Frame going upstream to the server for debug
 
 #AMA frame subtype
 AMA_INIT = 61 #Starts the AMA procedure

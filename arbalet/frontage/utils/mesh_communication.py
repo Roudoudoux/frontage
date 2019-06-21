@@ -134,6 +134,25 @@ class Frame:
         self.crc.set(array) # Generation of the checksum.
         return array
 
+    def err_goto(self, nstate = c.STATE_COLOR):
+        array = bytearray(c.FRAME_SIZE)
+        array[c.VERSION] = c.SOFT_VERSION
+        array[c.TYPE] = c.ERROR
+        array[c.DATA] = c.ERROR_GOTO
+        array[c.DATA+1] = nstate # First data byte is reserved for ERROR subtype.
+        self.mac_to_array(mac, array, c.DATA+2) #Convert the string in bytearray format, and put it in the frame after subtype and state.
+        self.crc.set(array) # Generation of the checksum.
+        return array
+
+    def reboot(self, timetosleep):
+        array = bytearray(c.FRAME_SIZE)
+        array[c.VERSION] = c.SOFT_VERSION
+        array[c.TYPE] = c.REBOOT
+        array[c.DATA] = timetosleep // 256
+        array[c.DATA+1] = timetosleep % 256
+        self.crc.set(array)
+        return array
+
     # Brief : computes an error frame
     # Params :
     #    - data : a bytearray received from the mesh network which follow the
