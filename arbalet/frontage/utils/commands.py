@@ -16,10 +16,31 @@ BDATA_POS = TIME_POS + TIME_SIZE
 BDATA_SIZE = 2
 LOG_POS = BDATA_POS + BDATA_SIZE
 
+def nstime(time):
+    time = time // 1000
+    µs = time % 1000
+    time = time // 1000
+    ms = time % 1000
+    time = time // 1000
+    s = time % 60
+    time = time // 60
+    m = time % 60
+    return "{}m{}s{}ms{}µs".format(m,s,ms,µs)
+
+def mistime(time):
+    µs = time % 1000
+    time = time // 1000
+    ms = time % 1000
+    time = time // 1000
+    s = time % 60
+    time = time // 60
+    m = time % 60
+    return "{}m{}s{}ms{}µs".format(m,s,ms,µs)
+
 class ESP:
     def __init__(self, mac, frame, state, start_time, layer, nb_subtree, color):
         self.mac = mac
-        self.current_log = 0
+        self.current_log = 99999990
         self.state = state
         self.rtime = start_time
         self.lasttime = start_time
@@ -180,11 +201,11 @@ class Logs(Thread):
         lesp.incr_current()
         if (lesp.get_current() >= self.opt_info):
             lesp.reset_current()
-            msg = "{} ns : {}{}\n\tLog : {}\n\tEsp time : {} µs".format(time_ns() - self.ref_time, mac, opt_info, log, rtime - lesp.get_esp_time())
+            msg = "{} ns : {}{}\n\tLog : {}\n\tEsp time : {}".format(nstime(time_ns() - self.ref_time), mac, opt_info, log, mistime(rtime - lesp.get_esp_time()))
         else:
-            msg = "{} ns : {}\n\tLog : {}\n\tEsp time : {} µs".format(time_ns() - self.ref_time, mac, log, rtime - lesp.get_esp_time())
+            msg = "{} ns : {}\n\tLog : {}\n\tEsp time : {}".format(nstime(time_ns() - self.ref_time), mac, log, mistime(rtime - lesp.get_esp_time()))
         if self.save:
-            self.file.write(colored(msg, lesp.get_color()))
+            self.file.write(colored(msg+"\n", lesp.get_color()))
         Logs.stdout.put(colored(msg, lesp.get_color()))
         Logs.semout.release()
 
