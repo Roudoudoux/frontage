@@ -17,14 +17,15 @@ void mesh_reception(void * arg) {
   mesh_data_t data;
   int flag = 0;
   data.data = rx_buf;
-  data.size = RX_SIZE;
-
+  data.proto = MESH_PROTO_BIN;
+  data.tos = MESH_TOS_P2P;
 
   while(is_running) {
+    data.size = RX_SIZE;
     err = esp_mesh_recv(&from, &data, portMAX_DELAY, &flag, NULL, 0);
-    if (err != ESP_OK || !data.size) {
+    if (err != ESP_OK) {
       #if CONFIG_MESH_DEBUG_LOG
-      ESP_LOGE(MESH_TAG, "err:0x%x, size:%d", err, data.size);
+      ESP_LOGE(MESH_TAG, "mesh_reception :: err:0x%x, size:%d", err, data.size);
       #endif
       continue;
     }
@@ -43,6 +44,9 @@ void mesh_reception(void * arg) {
     ESP_LOGI(MESH_TAG, "Received message from mesh of size %d\n", data.size);
     #endif
     if (data.data[TYPE] == LOG){ // Log messages does not go through esp state machine. Should be received only by ESP ROOT.
+      #if CONFIG_MESH_DEBUG_LOG
+      ESP_LOGI(MESH_TAG, "received a log of %d from "MACSTR" => transmitting to server", data.size, MAC2STR(from.addr));
+      #endif
       xRingbufferSend(STQ, data.data, data.size, FOREVER);
     } else {
       char log_msg[50];
@@ -175,9 +179,12 @@ void mesh_emission(void * arg){
   while(is_running){
     if ((mesg = xRingbufferReceive(MTQ, &size, FOREVER)) != NULL){
       int64_t timeb = esp_timer_get_time();
-      set_crc(mesg, FRAME_SIZE);
+      ESP_LOGI(MESH_TAG, "I want to send %d bytes", size);
+      set_crc(mesg, size);
       data.data = mesg;
-      data.size = FRAME_SIZE;
+      data.size = (int) size;
+      data.proto = MESH_PROTO_BIN;
+      data.tos = MESH_TOS_P2P;
       int flags = MESH_DATA_P2P;
       if (state == COLOR_E){
         flags = flags | MESH_DATA_NONBLOCK;
@@ -260,6 +267,15 @@ void mesh_emission(void * arg){
           }
           break;
         }
+        case LOG:
+        {
+          err = esp_mesh_send(NULL, &data, flags, NULL, 0);
+          ESP_LOGI(MESH_TAG, "Send a log of %d bytes which has returned err : %x ", data.size, err);
+          if (err != ESP_OK) {
+            ESP_LOGE(MESH_TAG, "an error occured");
+          }
+          break;
+        }
         default : //Broadcast the message to all the mesh. This concerns AMA frames.
         {
           for (int i = 0; i < route_table_size; i++) {
@@ -278,13 +294,15 @@ void mesh_emission(void * arg){
           break;
         }
       }
-      int64_t timea = esp_timer_get_time();
-      int64_t dif = timea - timeb;
-      char log_msg[50];
-      int log_msg_size = sprintf(log_msg, " %llu microsec to send the frame", dif);
-      int lsize = log_length(log_msg_size);
-      log_format(mesg, log_buffer, log_msg, log_msg_size);
-      log_send(log_buffer, lsize);
+      if (mesg[TYPE] != LOG){
+        int64_t timea = esp_timer_get_time();
+        int64_t dif = timea - timeb;
+        char log_msg[50];
+        int log_msg_size = sprintf(log_msg, " %llu microsec to send the frame", dif);
+        int lsize = log_length(log_msg_size);
+        log_format(mesg, log_buffer, log_msg, log_msg_size);
+        log_send(log_buffer, lsize);
+      }
       vRingbufferReturnItem(MTQ, mesg);
       mesg = NULL;
     }
@@ -306,13 +324,13 @@ void server_emission(void * arg){
         #endif
       } else  if (err == size){
         #if CONFIG_MESH_DEBUG_LOG
-        ESP_LOGI(MESH_TAG, "Time %hhx-%hhx-%hhx-%hhx-%hhx-%hhx-%hhx-%hhx send to serveur",  mesg[8], mesg[9], mesg[10], mesg[11], mesg[12], mesg[13], mesg[14], mesg[15]);
+        ESP_LOGI(MESH_TAG, "Message from %dx:%dx:%dx:%dx:%dx:%dx",  mesg[2], mesg[3], mesg[4], mesg[5], mesg[6], mesg[7]);
         ESP_LOGI(MESH_TAG, "Log has been transmitted to server");
         #endif
       } else {
         perror("message to server fail");
         #if CONFIG_MESH_DEBUG_LOG
-        ESP_LOGE(MESH_TAG, "Error on send to serveur, message %d - sent %d bytes", type_mesg(mesg), err);
+        ESP_LOGE(MESH_TAG, "Error on send to serveur, message %d - sent %d bytes out of %d ", type_mesg(mesg), err, size);
         #endif
       }
     vRingbufferReturnItem(STQ, mesg);

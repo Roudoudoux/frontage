@@ -130,7 +130,6 @@ void log_format(uint8_t* frame, uint8_t *log_frame, char * log_msg, int log_msg_
   log_frame[MSG_POS + log_msg_size] = '\0';
 
   int64_t time = esp_timer_get_time();
-  ESP_LOGI(MESH_TAG, "The time is %lld", time);
   for (int i = 0; i < TIME_SIZE; i++){
     log_frame[TIME_POS + i] = (time >> ((TIME_SIZE-i-1) * 8)) & 0xFF;
   }
