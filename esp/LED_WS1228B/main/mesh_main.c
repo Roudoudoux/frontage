@@ -23,13 +23,14 @@
 
 char * MESH_TAG = "mesh_main";
 uint8_t MESH_ID[6] = { 0x77, 0x77, 0x77, 0x77, 0x77, 0x77};
-
+char *states[7] = {"unknown", "INIT", "CONF", "ADDR", "COLOR", "ERROR", "REBOOT"};
 bool is_running = true;
 bool is_mesh_connected = false;
 mesh_addr_t mesh_parent_addr;
 int mesh_layer = -1;
 uint8_t my_mac[6] = {0};
 unsigned int state = INIT;
+unsigned int old_state = INIT;
 bool is_asleep = false;
 uint16_t current_sequence = 0;
 uint8_t buf_err[FRAME_SIZE] = {0};
@@ -165,42 +166,42 @@ void esp_mesh_state_machine(void * arg) {
     while(is_running) {
         buf_recv = (uint8_t *) xRingbufferReceive(RQ, &size, 10);
         if (buf_recv != NULL){
-          char log_msg[50];
-          int log_msg_size = sprintf(log_msg, "Received a message of %d", size);
-          int lsize = log_length(log_msg_size);
-          log_format(buf_recv, log_buffer, log_msg, log_msg_size);
-          log_send(log_buffer, lsize);
-#if CONFIG_MESH_DEBUG_LOG
-          ESP_LOGI(MESH_TAG, "Received a message from of %d", size);
-#endif
-        }  else {
-            if (state != INIT){
-              continue;
-            }
+          int new_state = transition(state, type_mesg(buf_recv), sub_type(buf_recv));
+          if (new_state != state) {
+            #if CONFIG_MESH_DEBUG_LOG
+            ESP_LOGI(MESH_TAG, "Passed from %s to %s state", states[state], states[new_state]);
+            #endif
+            old_state = state;
+            state = new_state;
+          }
         }
         switch(state) {
         case INIT:
-            state_init(buf_recv);
+            state_init(buf_recv, log_buffer);
             break;
         case CONF :
-            state_conf(buf_recv);
+            state_conf(buf_recv, log_buffer);
             break;
         case ADDR :
-            state_addr(buf_recv);
+            state_addr(buf_recv, log_buffer);
             break;
         case COLOR :
-            state_color(buf_recv);
+            state_color(buf_recv, log_buffer);
             break;
         case ERROR_S :
-            state_error(buf_recv);
+            state_error(buf_recv, log_buffer);
             break;
         case REBOOT_S :
-            state_reboot(buf_recv);
+            state_reboot(buf_recv, log_buffer);
             break;
         default :
 #if CONFIG_MESH_DEBUG_LOG
             ESP_LOGE(MESH_TAG, "ESP entered unknown state %d => RESTART", state);
 #endif
+            int lsize = log_length(42);
+            log_format(buf_recv, log_buffer, "Unknown state : isolated rebooting process", 42);
+            log_send(log_buffer, lsize);
+            vTaskDelay(30 / portTICK_PERIOD_MS);
             esp_restart();
         }
         if (buf_recv != NULL){
@@ -255,7 +256,7 @@ esp_err_t esp_mesh_comm_p2p_start(void)
       #endif
       xTaskCreate(mesh_reception, "ESPRX", 6144, NULL, 5, NULL);
       xTaskCreate(mesh_emission, "ESPTX", 6144, NULL,5,NULL);
-      xTaskCreate(esp_mesh_state_machine, "STMC", 6144, NULL, 5, NULL);
+      xTaskCreate(esp_mesh_state_machine, "STMC", 10000, NULL, 5, NULL);
     }
     return ESP_OK;
 }
