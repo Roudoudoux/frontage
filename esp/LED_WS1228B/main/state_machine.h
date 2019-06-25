@@ -1,6 +1,11 @@
 #ifndef __STATE_MACHINE_H__
 #define __STATE_MACHINE_H__
 
+/**
+ * @brief return the normal next state from the frame type
+ * the frame will be handeled in this next state.
+ */
+int transition(int cstate, int ftype, int subtype);
 
 /**
  * @brief Main function of the INIT state.
@@ -8,7 +13,7 @@
  * Node cards will send BEACON to the root, and wait for B_ACK to go into ADDR state. B_ACK frame can have an error Flag raised, in which case card will instead go into ERROR state.
  * The root card can switch at any time into ERROR state if an error occured within the mesh network or in the server.
  */
-void state_init(uint8_t * buf_recv);
+void state_init(uint8_t * buf_recv, uint8_t *buf_log);
 
  /**
   * @brief Main function of the CONF state, only used by the root card.
@@ -16,7 +21,7 @@ void state_init(uint8_t * buf_recv);
   * If it receives an AMA_init frame, it goes into the ADDR state
   * The root card can switch at any time into ERROR state if an error occured within the mesh network or in the server.
   */
-void state_conf(uint8_t * buf_recv);
+void state_conf(uint8_t * buf_recv, uint8_t *buf_log);
 
 /**
   * @brief Main function for the ADDR state.
@@ -25,7 +30,7 @@ void state_conf(uint8_t * buf_recv);
   * On reception on AMA_color frame, the Addressing is over, and all cards go into COLOR state
   * The root card can switch at any time into ERROR state if an error occured within the mesh network or in the server.
   */
-void state_addr(uint8_t * buf_recv);
+void state_addr(uint8_t * buf_recv, uint8_t *buf_log);
 
 /**
  * @brief Main function for the COLOR state.
@@ -34,14 +39,14 @@ void state_addr(uint8_t * buf_recv);
  * On reception of COLOR_E frame, the card will dislay the color indicated.
  * The root card can switch at any time into ERROR state if an error occured within the mesh network or in the server.
  */
-void state_color(uint8_t * buf_recv);
+void state_color(uint8_t * buf_recv, uint8_t *buf_log);
 
 
 /**
  * @brief Main function for the SLEEP state
  * This state is to be implemented, and is currently unused.
  */
- void state_reboot(uint8_t * buf_recv);
+ void state_reboot(uint8_t * buf_recv, uint8_t *buf_log);
 
 
  /**
@@ -54,5 +59,5 @@ void state_color(uint8_t * buf_recv);
   * - ERR_GOTO forces a card to change state.
   * - ERR_ROOT is used to notify the server that a reconnection with a different root happened.
   */
-  void state_error(uint8_t * buf_recv);
+  void state_error(uint8_t * buf_recv, uint8_t *buf_log);
 #endif

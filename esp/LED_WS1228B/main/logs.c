@@ -61,11 +61,6 @@ void log_basic_data(uint8_t * log, int type, int sub_type){
           log[BDATA_POS + 1] = log[BDATA_POS + 1] | 0x07;
           break;
         }
-        case AMA_REPRISE:
-        {
-          log[BDATA_POS + 1] = log[BDATA_POS + 1] | 0x08;
-          break;
-        }
         default:
         {
           log[BDATA_POS + 1] = log[BDATA_POS + 1] | 0x0F;
@@ -139,9 +134,13 @@ void log_format(uint8_t* frame, uint8_t *log_frame, char * log_msg, int log_msg_
 
 
 void log_send(uint8_t *log_frame, int log_size) {
+  #if SERVER_LOG
   if ( !esp_mesh_is_root()){
     xRingbufferSend(MTQ, log_frame, log_size, FOREVER);
   } else {
     xRingbufferSend(STQ, log_frame, log_size, FOREVER);
   }
+  #else
+  //write logs on SD card
+  #endif
 }

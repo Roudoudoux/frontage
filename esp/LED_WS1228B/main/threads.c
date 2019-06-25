@@ -6,7 +6,7 @@
 #include "utils.h"
 #include "crc.h"
 #include "logs.h"
-
+#include "frames.h"
 static uint8_t rx_buf[RX_SIZE] = { 0, };
 static uint8_t waiting_serv = 0;
 
@@ -25,7 +25,7 @@ void mesh_reception(void * arg) {
     err = esp_mesh_recv(&from, &data, portMAX_DELAY, &flag, NULL, 0);
     if (err != ESP_OK) {
       #if CONFIG_MESH_DEBUG_LOG
-      ESP_LOGE(MESH_TAG, "mesh_reception :: err:0x%x, size:%d", err, data.size);
+      ESP_LOGE(MESH_TAG, "err:0x%x, size:%d", err, data.size);
       #endif
       continue;
     }
@@ -76,15 +76,10 @@ void server_reception(void * arg) {
         is_server_connected = false;
         waiting_serv = 0;
         uint8_t buf_send[FRAME_SIZE];
-        buf_send[VERSION] = SOFT_VERSION;
-        buf_send[TYPE] = COLOR_E;
         current_sequence++;
-        buf_send[DATA] = (current_sequence & (0xFF00))>>8;
-        buf_send[DATA+1] = current_sequence & (0x00FF);
         uint8_t zeros[3] = {0, 0, 0};
         for (int i = 0; i < route_table_size; i++) {
-          copy_buffer(buf_send+DATA+2, zeros, 3);
-          copy_buffer(buf_send+DATA+5, route_table[i].card.addr, 6);
+          frame_color_e(buf_send, (uint8_t *) &current_sequence, zeros, route_table[i].card.addr);
           if (!same_mac(route_table[i].card.addr, my_mac)) {
             if (route_table[i].state) {
               xRingbufferSend(MTQ, &buf_send, FRAME_SIZE, FOREVER);
@@ -178,8 +173,12 @@ void mesh_emission(void * arg){
   size_t size = 0;
   while(is_running){
     if ((mesg = xRingbufferReceive(MTQ, &size, FOREVER)) != NULL){
-      int64_t timeb = esp_timer_get_time();
+      #if CONFIG_MESH_DEBUG_LOG
       ESP_LOGI(MESH_TAG, "I want to send %d bytes", size);
+      #endif
+      int64_t timeb = 0;
+      int64_t timea = 0;
+      int64_t dif = 0;
       set_crc(mesg, size);
       data.data = mesg;
       data.size = (int) size;
@@ -192,7 +191,10 @@ void mesh_emission(void * arg){
       switch (type_mesg(mesg)) {
         case BEACON: //Send a beacon to the root.
         {
+          timeb = esp_timer_get_time();
           err = esp_mesh_send(NULL, &data, flags , NULL, 0);
+          timea = esp_timer_get_time();
+          dif = timea -timeb;
           if (err != 0) {
             #if CONFIG_MESH_DEBUG_LOG
             ESP_LOGE(MESH_TAG, "Couldn't send BEACON to root - %s", esp_err_to_name(err));
@@ -204,7 +206,10 @@ void mesh_emission(void * arg){
         {
           mesh_addr_t to;
           get_mac(mesg, to.addr);
+          timeb = esp_timer_get_time();
           err = esp_mesh_send(&to, &data, flags, NULL, 0); //Should prevent freezing of cards, but didn't work -> further testing is required (still blocking?)
+          timea = esp_timer_get_time();
+          dif = timea -timeb;
           if (err != 0) {
             #if CONFIG_MESH_DEBUG_LOG
             ESP_LOGE(MESH_TAG, "Couldn't send COLOR to "MACSTR" - %s", MAC2STR(to.addr), esp_err_to_name(err));
@@ -222,7 +227,10 @@ void mesh_emission(void * arg){
           #endif
           mesh_addr_t to;
           get_mac(mesg, to.addr);
+          timeb = esp_timer_get_time();
           err = esp_mesh_send(&to, &data, flags, NULL, 0);
+          timea = esp_timer_get_time();
+          dif = timea -timeb;
           if (err != 0) {
             #if CONFIG_MESH_DEBUG_LOG
             ESP_LOGE(MESH_TAG, "Couldn't send B_ACK to "MACSTR" - %s", MAC2STR(to.addr), esp_err_to_name(err));
@@ -242,7 +250,10 @@ void mesh_emission(void * arg){
             #if CONFIG_MESH_DEBUG_LOG
             ESP_LOGI(MESH_TAG, "error relay worked");
             #endif
+            timeb = esp_timer_get_time();
             err = esp_mesh_send(NULL, &data, flags, NULL, 0);
+            timea = esp_timer_get_time();
+            dif = timea -timeb;
             if (err != 0) {
               #if CONFIG_MESH_DEBUG_LOG
               ESP_LOGE(MESH_TAG, "Couldn't send ERROR to root - %s", esp_err_to_name(err));
@@ -251,7 +262,10 @@ void mesh_emission(void * arg){
           } else if (mesg[DATA] == ERROR_GOTO) {
             mesh_addr_t to;
             get_mac(mesg, to.addr);
+            timeb = esp_timer_get_time();
             err = esp_mesh_send(&to, &data, flags, NULL, 0);
+            timea = esp_timer_get_time();
+            dif = timea -timeb;
             if (err != 0) {
               #if CONFIG_MESH_DEBUG_LOG
               ESP_LOGI(MESH_TAG, "Coudln't send ERROR_GOTO %d to "MACSTR" : %s", mesg[DATA+1], MAC2STR(to.addr), esp_err_to_name(err));
@@ -270,9 +284,13 @@ void mesh_emission(void * arg){
         case LOG:
         {
           err = esp_mesh_send(NULL, &data, flags, NULL, 0);
+          #if CONFIG_MESH_DEBUG_LOG
           ESP_LOGI(MESH_TAG, "Send a log of %d bytes which has returned err : %x ", data.size, err);
+          #endif
           if (err != ESP_OK) {
+            #if CONFIG_MESH_DEBUG_LOG
             ESP_LOGE(MESH_TAG, "an error occured");
+            #endif
           }
           break;
         }
@@ -280,7 +298,10 @@ void mesh_emission(void * arg){
         {
           for (int i = 0; i < route_table_size; i++) {
             if (!same_mac(route_table[i].card.addr, my_mac) && route_table[i].state) {
+              timeb = esp_timer_get_time();
               err = esp_mesh_send(&route_table[i].card, &data, flags, NULL, 0);
+              timea = esp_timer_get_time();
+              dif = dif + timea -timeb;
               if (err != 0) {
                 #if CONFIG_MESH_DEBUG_LOG
                 ESP_LOGE(MESH_TAG, "Couldn't send message %d to "MACSTR" - %s", type_mesg(mesg), MAC2STR(route_table[i].card.addr), esp_err_to_name(err));
@@ -291,12 +312,11 @@ void mesh_emission(void * arg){
               }
             }
           }
+          dif = dif / route_table_size;
           break;
         }
       }
-      if (mesg[TYPE] != LOG){
-        int64_t timea = esp_timer_get_time();
-        int64_t dif = timea - timeb;
+      if (mesg[TYPE] != LOG){ //Log frame does not produce other log frame.
         char log_msg[50];
         int log_msg_size = sprintf(log_msg, " %llu microsec to send the frame", dif);
         int lsize = log_length(log_msg_size);
@@ -324,8 +344,7 @@ void server_emission(void * arg){
         #endif
       } else  if (err == size){
         #if CONFIG_MESH_DEBUG_LOG
-        ESP_LOGI(MESH_TAG, "Message from %dx:%dx:%dx:%dx:%dx:%dx",  mesg[2], mesg[3], mesg[4], mesg[5], mesg[6], mesg[7]);
-        ESP_LOGI(MESH_TAG, "Log has been transmitted to server");
+        ESP_LOGI(MESH_TAG, "Log from "MACSTR" has been transmitted to server", MAC2STR(&mesg[2]));
         #endif
       } else {
         perror("message to server fail");

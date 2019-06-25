@@ -1,5 +1,6 @@
 #ifndef __MESH_H__
 #define __MESH_H__
+#define SERVER_LOG 1
 
 #include "esp_wifi.h"
 #include "esp_system.h"
@@ -40,10 +41,10 @@
 #define LOG 9
 
 /* AMA sub types */
-
-#define AMA_INIT 61
-#define AMA_COLOR 62
-#define AMA_REPRISE 69
+#define AMA_START 59
+#define AMA_INIT 60
+#define AMA_COLOR 61
+#define AMA_END 62
 
 /* ERROR sub types */
 
@@ -69,6 +70,8 @@
 #define INPUT GPIO_MODE_INPUT
 
 
+#define RGB_SIZE 3
+#define SEQUENCE_SIZE 2
 #define MAC_SIZE 6
 #define FOREVER (15000 / portTICK_PERIOD_MS)
 
@@ -95,6 +98,7 @@ extern mesh_addr_t mesh_parent_addr;
 extern int mesh_layer;
 extern uint8_t my_mac[MAC_SIZE];
 extern unsigned int state;
+extern unsigned int old_state;
 extern bool is_asleep;
 extern uint16_t current_sequence;
 extern uint8_t buf_err[FRAME_SIZE];
