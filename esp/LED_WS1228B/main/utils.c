@@ -9,6 +9,9 @@ int type_mesg(uint8_t * msg){
     return (int) msg[TYPE];
 }
 
+int sub_type(uint8_t *msg){
+  return (int) msg[SUB_TYPE];
+}
 /**
  * @brief Copy the mac adress from a buffer to another
  */

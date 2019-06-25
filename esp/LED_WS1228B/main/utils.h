@@ -7,6 +7,12 @@
 int type_mesg(uint8_t * msg);
 
 /**
+ * @brief Get the sub-type of a message from the data buffer (may be irrevelant)
+ */
+int sub_type(uint8_t * msg);
+
+
+/**
  * @brief Copy the mac adress from a buffer to another
  */
 void copy_mac(uint8_t * from, uint8_t * to);
