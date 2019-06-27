@@ -29,7 +29,7 @@ class Mock_mesh(Thread):
         self.crc = Checksum()
 
         self.co_server = socket.create_connection((HOST, PORT))
-        self.co_server.settimeout(90)
+        self.co_server.settimeout(15)
         self.sended = 1
         self.nb_pixels = row*col
         self.rows = row
@@ -108,9 +108,7 @@ class Mock_mesh(Thread):
                 elif data[DATA] == AMA_INIT:
                     print("ERROR : amma_init should not be received here")
             if data[TYPE] == COLOR:
-                print("Message color received")
                 self.display_colors(data[DATA+2:])
-                sleep(0.1)
 
     # operational state : relay color frame
     def state_color(self):
