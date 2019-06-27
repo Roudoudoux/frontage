@@ -129,7 +129,7 @@ class Logs(Thread):
         if infile:
             self.save = True
             if (name is None):
-                name = "logs_"+nb_logs+".log"
+                name = "logs_"+ nb_logs +".log"
             self.file = open(Logs.path + name + ".log", 'wt')
         else:
             self.save = False
@@ -252,7 +252,7 @@ class Commands(Thread):
         self.commands = {"help":("cmd", "if no arg display general list of commands"),
                          "start-server": ("", "start the server application"),
                          "sender-auto": ("True|False", "the server will manage automatically the sending of messages (default True)"),
-                         "addressing": ("", "start an addressing procedure"),
+                         "addressing": ("auto|manual", "start an addressing procedure, if auto is selected, a random addressing will occure"),
                          "log": ("augmented_info file name","manage the log received from mesh network\n\
         augmented_info : number of log received for a particular esp spacing augmented log output\n\
         file : enable saving log in a persistant file (False by default)\n\
@@ -291,7 +291,7 @@ class Commands(Thread):
         elif (cmd == "sender-auto" or cmd == "sa"):
             self.send_method(args[0])
         elif (cmd == "addressing" or cmd == "a"):
-            self.addressing()
+            self.addressing(args[0])
         elif (cmd == "stop"):
             self.stop_server()
         elif (cmd == "display" or cmd == "d"):
@@ -309,9 +309,13 @@ class Commands(Thread):
             self.help()
 
     # OK
-    def addressing(self):
-        Commands.start_addr = True
-        Commands.end_addr = False
+    def addressing(self, meth="auto"):
+        if meth == "auto":
+            if sel.server is not None:
+                self.server.auto_addressing()
+        else:
+            Commands.start_addr = True
+            Commands.end_addr = False
 
     # OK
     def send_method(self, auto):
@@ -679,6 +683,22 @@ class Mesh(Thread):
             array = self.msg.color(Mesh.model, Mesh.sequence, Mesh.pixels, Listen.unk, self.ama_check)
             self.mesh_conn.send(array)
 
+    def auto_addressing(self):
+        self.procedures_manager()
+        nb_pixel = len(Mesh.pixels) + len(Listen.unk)
+        array = [None for i in range(nb_pixel)]
+        Mesh.model = [[(0,0,0) for i in range(nb_pixel)]]
+        i = 0
+        for (pmac, pix) in Mesh.pixels:
+            Mesh.pixels[pmac] = ((0, i), pix[1])
+            array[pix[1]] = 1
+            i += 1
+        for (pmac, pix) in Listen.unk:
+            Mesh.pixels[pmac] = ((0,i), pix[1])
+            array[pix[1]] = 1
+        Listen.unk = {}
+        self.procedures_manager()
+
     # OK
     def procedures_manager(self):
         Mesh.ama += 1
@@ -737,7 +757,6 @@ class Mesh(Thread):
                     if len(Listen.unk) == 0:
                         Mesh.ama == 2
                         return
-                    ans = input("press a key to continue")
                     (pmac, pix) = Listen.unk.popitem()
                     for i in range(self.rows):
                         for j in range(self.cols):
@@ -839,6 +858,11 @@ class Server(Thread):
         self.p_sem.release()
         Server.running = True
         Mesh.socket.settimeout(timeout)
+
+    def auto_addressing(self):
+        if socket_thread is None:
+            return
+        socket_thread.auto_addressing()
 
     # OK
     def run(self):
