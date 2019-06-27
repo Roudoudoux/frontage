@@ -275,6 +275,40 @@ class Commands(Thread):
         self.logsthread = Logs(eval(opt_info), file, name)
         self.logsthread.start()
 
+    def load_script(self, path):
+        try:
+            self.file = open(path, 'r')
+            self.old_lines = []
+            self.current_line = self.file.readline()
+            self.next_lines = self.file.readlines()
+        except:
+            self.current_line = None
+            self.old_lines = []
+            self.next_lines = []
+            print("Couldn't open the file \"{}\", make sure the file exists and you have right on it".format(path))
+
+    def exec_line(self):
+        args = self.current_line[:len(self.current_line)-1].split(" ")
+        if len(args) > 1 :
+            self.execute(args[0], args[1:])
+        else:
+            self.execute(args[0])
+        self.old_lines += [self.current_line]
+        if (len(self.next_lines) > 1):
+            self.current_line = self.next_lines[0]
+            self.next_lines = self.next_lines[1:]
+        elif (len(self.next_lines) == 1):
+            self.current_line = self.next_lines[0]
+            self.next_lines = []
+        else:
+            self.current_line = None
+            print("End of script")
+
+    def exec_script(self):
+        while self.current_line is not None:
+            self.exec_line()
+
+
     # OK
     def execute(self, cmd, args=[None]):
         if (cmd == "help" or cmd == "h"):
@@ -397,7 +431,6 @@ class Commands(Thread):
         else:
             try:
                 zcorp = eval(arg)
-                print(zcorp)
                 if (str(type(zcorp)) == "<class 'function'>"):
                     print(zcorp())
                 else:
@@ -432,8 +465,8 @@ class Commands(Thread):
 
     # TO DO
     def script(self, path):
-        print("script function TODO")
-        pass
+        self.load_script(path)
+        self.exec_script()
 
     # OK
     def run(self):
