@@ -7,7 +7,6 @@ from threading import Thread
 from math import ceil
 from crc import *
 #import goto
-
 # CONSTANTS
 
 # Connection
@@ -22,16 +21,12 @@ INSTALL = 3
 COLOR = 4
 AMA = 6
 ERROR = 7
-SLEEP = 8
 AMA_INIT = 61
 AMA_COLOR = 62
 ERROR_CO = 71
 ERROR_DECO = 72
 ERROR_GOTO = 73
-SLEEP_SERVER = 81
-SLEEP_MESH = 82
-SLEEP_WAKEUP = 89
-
+REBOOT = 8
 #Field
 
 VERSION = 0
@@ -110,6 +105,19 @@ class Listen(Thread) :
             if self.allowed :
                 self.listen()
 
+    def reboot(self):
+        print("start reboot")
+        self.unk = []
+        self.deco = []
+        array = bytearray(FRAME_SIZE)
+        array[VERSION] = SOFT_VERSION
+        array[TYPE] = REBOOT
+        array[DATA] = 100 // 256
+        array[DATA+1] = 100 %256
+        crc_get(array)
+        self.com.conn.send(array)
+        print("I've sent {}".format(array))
+
     def listen(self) :
         print("Listening...")
         data = ""
@@ -158,7 +166,7 @@ class Main_communication(Thread) :
     comp = 0
     dic = {}
     sequence = 0
-    
+
     def __init__(self, conn, addr) :
         Thread.__init__(self)
         self.conn = conn
@@ -170,6 +178,14 @@ class Main_communication(Thread) :
     def run(self) :
         self.state_machine()
         print("exiting thread")
+
+    def reboot(self):
+        Main_communication.addressed = False
+        Main_communication.comp = 0
+        Main_communication.sequence = 0
+        Main_communication.dic = {}
+        Main_communication.tab = []
+        self.l.reboot()
 
     def state_machine(self) :
         print("Entering state machine")
@@ -218,6 +234,8 @@ class Main_communication(Thread) :
                 else :
                     print("A message was recieved but it is not a BEACON")
                 goon = input("Would you like to keep going on recieving mac addresses ? [Y/n]")
+                if (goon == 'reboot'):
+                    self.reboot()
             else :
                 print("Empty message or invalid CRC")
 
@@ -257,6 +275,8 @@ class Main_communication(Thread) :
             #print("extinction du pixel envoyé")
             if (ok != 'n') :
                 i+=1
+            elif (ok == 'reboot'):
+                self.reboot()
         array = msg_ama(AMA_COLOR)
         self.conn.send(array)
 
@@ -308,12 +328,16 @@ def main() : #Kinda main-like. You can still put executable code between functio
             except socket.error as msg:
                 continue
                 print("Binding has failed\n Err code :" + str(msg[0]) + "\n msg : " + msg[1])
-                sys.exit()  
+                sys.exit()
             break
         socket_thread = None
         print("Socket opened, waiting for connection...")
         print(Main_communication.s)
         while True :
+            if socket_thread is not None:
+                r = input("reboot ? [y/N]")
+                if (r != 'y') :
+                    socket_thread.reboot()
             conn, addr = Main_communication.s.accept()
             print("Connection accepted")
             if (socket_thread != None) :
