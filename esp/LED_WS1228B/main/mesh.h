@@ -11,7 +11,7 @@
 #include <driver/gpio.h>
 #include "freertos/ringbuf.h"
 
-#define TIME_SLEEP 5 //time in seconds
+#define TIME_TO_GET_MESH 150000000 //time in seconds
 #define SOFT_VERSION 2
 #define SEQU_SEUIL 60000
 

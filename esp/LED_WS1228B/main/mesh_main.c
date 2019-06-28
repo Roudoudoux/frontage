@@ -2,7 +2,6 @@
 #include <nvs_flash.h>
 #include <lwip/sockets.h>
 #include <pthread.h>
-
 //#define __MAIN__
 
 #include "mesh.h"
@@ -47,9 +46,29 @@ bool is_server_connected = false;
 /* Logical routing table*/
 int route_table_size = 0;
 
+/* Reboot timer if alone as root*/
+static void timer_reboot_callback(void* arg);
+const esp_timer_create_args_t timer_args = {
+            .callback = &timer_reboot_callback,
+            /* argument specified here will be passed to timer callback function */
+            .arg = NULL,
+            .name = "timer_reboot"
+    };
+esp_timer_handle_t timer_reboot;
+
 /*******************************************************
  *                Function Definitions
  *******************************************************/
+
+ static void timer_reboot_callback(void* arg)
+ {
+     if (esp_mesh_is_root() && esp_mesh_get_routing_table_size() == 1){
+       #if CONFIG_MESH_DEBUG_LOG
+       ESP_LOGE(MESH_TAG, "Alone on the mesh Netwoork, rebooting");
+       #endif
+       reboot();
+     }
+ }
 
 /**
  *   @brief Update the route table :
@@ -201,8 +220,8 @@ void esp_mesh_state_machine(void * arg) {
             int lsize = log_length(42);
             log_format(buf_recv, log_buffer, "Unknown state : isolated rebooting process", 42);
             log_send(log_buffer, lsize);
-            vTaskDelay(30 / portTICK_PERIOD_MS);
-            esp_restart();
+            vTaskDelay(3000 / portTICK_PERIOD_MS);
+            reboot();
         }
         if (buf_recv != NULL){
             vRingbufferReturnItem(RQ, buf_recv);
@@ -258,6 +277,9 @@ esp_err_t esp_mesh_comm_p2p_start(void)
       xTaskCreate(mesh_emission, "ESPTX", 6144, NULL,5,NULL);
       xTaskCreate(esp_mesh_state_machine, "STMC", 10000, NULL, 5, NULL);
     }
+
+    ESP_ERROR_CHECK(esp_timer_create(&timer_args, &timer_reboot));
+    ESP_ERROR_CHECK(esp_timer_start_once(timer_reboot, TIME_TO_GET_MESH));
     return ESP_OK;
 }
 
@@ -453,6 +475,7 @@ void mesh_event_handler(mesh_event_t event)
  */
 void app_main(void)
 {
+  ESP_ERROR_CHECK(esp_sleep_enable_timer_wakeup(500));
     ESP_ERROR_CHECK(nvs_flash_init());
     /*  tcpip initialization */
     tcpip_adapter_init();

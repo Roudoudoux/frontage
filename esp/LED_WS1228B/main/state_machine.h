@@ -48,7 +48,7 @@ void state_color(uint8_t * buf_recv, uint8_t *buf_log);
  */
  void state_reboot(uint8_t * buf_recv, uint8_t *buf_log);
 
-
+void reboot(void);
  /**
   * @brief Main function for the ERROR state.
   * This state is used for error management, whatever error type it is. As such, it has the same functions as the color state, so that cards can still work properly while in this state.

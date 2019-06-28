@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "esp_sleep.h"
 #include "mesh.h"
 #include "state_machine.h"
 #include "thread.h"
@@ -22,6 +23,14 @@ int transition(int cstate, int ftype, int fstype){
   if (cstate < 1 || cstate > 6) return REBOOT_S;
   if (ftype == AMA && fstype > AMA_START && fstype < AMA_END) ftype = ftype + (ftype % 10);
   return transitions[cstate - 1][ftype - 1];
+}
+
+void reboot(void){ //FIX ME
+  state = INIT;
+  old_state = INIT;
+  esp_mesh_stop();
+  esp_wifi_deinit();
+  esp_deep_sleep(500);
 }
 
 void state_init(uint8_t *buf_recv, uint8_t* buf_log){
@@ -251,7 +260,7 @@ void state_reboot(uint8_t *buf_recv, uint8_t *buf_log){
   #if CONFIG_MESH_DEBUG_LOG
   ESP_LOGI(MESH_TAG, "je reboot");
   #endif
-  esp_restart();
+  reboot();
 }
 
 void state_error(uint8_t *buf_recv, uint8_t *buf_log){
